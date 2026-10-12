@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://faeriehouse.onrender.com https: data:; connect-src https://faerienews-backend.onrender.com; base-uri 'none'; form-action 'self'; object-src 'none'" />
+    <meta name="theme-color" content="#10261d" />
+    <meta name="description" content="Quản lý thành viên và bài đăng Faerie News." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/editor.css" />
+    <link rel="stylesheet" href="/login.css" />
+    <link rel="stylesheet" href="/popup.css" />
+    <title>Faerie House · Admin</title>
+    <script type="module" src="/app.js"></script>
+  </head>
+  <body>
+    <section id="login-screen" class="login-screen" aria-labelledby="login-title">
+      <div class="login-card">
+        <div class="login-mark"><img src="https://faeriehouse.onrender.com/images/faerie-icon.png" alt="" /><span>FAERIE HOUSE / CONTROL ROOM</span></div>
+        <span class="section-code">ADMIN ACCESS · 2026</span>
+        <h1 id="login-title">Mở khóa<br /><em>Faerie Admin.</em></h1>
+        <p id="login-description">Đăng nhập bằng tài khoản quản trị Faerie House.</p>
+        <form id="login-form">
+          <label for="login-username">Username</label>
+          <input id="login-username" type="text" autocomplete="username" spellcheck="false" required />
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" required />
+          <p id="login-error" class="login-error" role="alert" hidden></p>
+          <button id="login-submit" class="button button-primary" type="submit">Đăng nhập <span aria-hidden="true">↗</span></button>
+        </form>
+        <p class="login-help">Tài khoản được kiểm tra trên máy chủ. Mỗi lần đăng nhập thành công được ghi vào nhật ký bảo mật.</p>
+      </div>
+    </section>
+    <div class="shell" hidden>
+      <aside class="sidebar">
+        <div class="brand"><img src="https://faeriehouse.onrender.com/images/faerie-icon.png" alt="" /><div><strong>FAERIE HOUSE</strong><span>CONTROL ROOM / 2026</span></div></div>
+        <nav class="sidebar-nav" aria-label="Quản trị">
+          <button class="nav-item active" type="button" data-view="members" aria-current="page"><span class="nav-glyph">01</span><span>Thành viên</span><span id="sidebar-member-count" class="nav-count">—</span></button>
+          <button class="nav-item" type="button" data-view="news"><span class="nav-glyph">02</span><span>News</span><span id="sidebar-news-count" class="nav-count">—</span></button>
+          <button class="nav-item" type="button" data-view="popup"><span class="nav-glyph">03</span><span>Popup sự kiện</span></button>
+          <button class="nav-item" type="button" data-view="logs"><span class="nav-glyph">04</span><span>Nhật ký đăng nhập</span></button>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="live-indicator"><i></i><span id="api-status">Đang kết nối API…</span></div>
+          <a href="https://faeriehouse.onrender.com/" target="_blank" rel="noopener noreferrer">Xem trang Faerie <span aria-hidden="true">↗</span></a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div><span class="eyebrow">FAERIE / ADMINISTRATOR</span><h1 id="page-title">Quản lý thành viên</h1></div>
+          <div class="account-box"><span id="auth-status" class="account-status">Đã đăng nhập</span><button id="auth-toggle" class="button button-outline" type="button">Đăng xuất</button></div>
+        </header>
+
+        <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+        <section id="members-view" class="view" aria-label="Thành viên">
+          <div class="view-intro"><div><span class="section-code">01 / MEMBER DIRECTORY</span><h2>Gương mặt Faerie <em>2026.</em></h2></div><p>Chọn một thành viên để xem ảnh và cập nhật hồ sơ.</p></div>
+          <div class="member-layout">
+            <div class="directory panel">
+              <div class="directory-head"><div><span class="field-label">DANH SÁCH</span><strong id="member-count">— thành viên</strong></div><input id="member-search" type="search" placeholder="Tìm tên, vai trò…" aria-label="Tìm thành viên" /></div>
+              <div id="member-list" class="member-list"><p class="empty-message">Đang tải thành viên…</p></div>
+            </div>
+            <section id="member-detail" class="detail panel" aria-label="Hồ sơ thành viên"><div class="empty-detail"><span>✦</span><h3>Chọn một thành viên</h3><p>Ảnh và thông tin sẽ hiển thị ở đây.</p></div></section>
+          </div>
+        </section>
+
+        <section id="news-view" class="view" aria-label="Tin tức" hidden>
+          <div class="view-intro"><div><span class="section-code">02 / NEWS DESK</span><h2>Đăng bài <em>News.</em></h2></div><p>Bài mới sẽ xuất hiện trên tab News của trang Faerie sau khi API cập nhật.</p></div>
+          <div class="news-layout">
+            <section class="composer panel"><div class="panel-title"><span class="field-label">BÀI ĐĂNG MỚI</span><strong>Biên tập nội dung</strong></div>
+              <form id="news-form">
+                <label>Tiêu đề <input name="title" maxlength="100" required placeholder="Ví dụ: Ngày hội Faerie" /></label>
+                <div class="form-row"><label>Ngày đăng <input name="date" type="date" required /></label><label>Nhãn <input name="tag" maxlength="30" value="NEWS" required /></label></div>
+                <div class="editor-field">
+                  <span class="editor-label" id="news-editor-label">Nội dung bài viết</span>
+                  <div class="editor-toolbar" role="toolbar" aria-label="Định dạng bài viết">
+                    <button type="button" data-format="bold" aria-label="In đậm" title="In đậm (Ctrl+B)"><strong>B</strong></button>
+                    <button type="button" data-format="italic" aria-label="In nghiêng" title="In nghiêng (Ctrl+I)"><em>I</em></button>
+                    <button type="button" data-format="underline" aria-label="Gạch chân" title="Gạch chân (Ctrl+U)"><u>U</u></button>
+                    <label class="editor-size-label" for="news-font-size">Cỡ chữ</label>
+                    <select id="news-font-size" aria-label="Cỡ chữ bài viết">
+                      <option value="2">Nhỏ</option>
+                      <option value="3" selected>Vừa</option>
+                      <option value="4">Lớn</option>
+                      <option value="5">Rất lớn</option>
+                    </select>
+                  </div>
+                  <div id="news-editor" class="news-editor" contenteditable="true" role="textbox" aria-labelledby="news-editor-label" aria-multiline="true" data-placeholder="Viết câu chuyện của nhà Faerie…"></div>
+                  <small class="editor-help">Chọn đoạn chữ rồi nhấn nút định dạng. Phần mô tả ngắn trên thẻ News sẽ tự lấy từ bài viết.</small>
+                </div>
+                <label>Link ảnh (không bắt buộc) <input name="image" type="url" placeholder="https://…" /></label>
+                <label>Địa điểm <input name="location" maxlength="100" value="Faerie House" /></label>
+                <div class="form-actions"><span id="news-hint">Bài viết được lưu qua API quản trị.</span><button class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button></div>
+              </form>
+            </section>
+            <section class="published panel"><div class="panel-title"><span class="field-label">ĐÃ XUẤT BẢN</span><strong id="news-count">— câu chuyện</strong></div><div id="news-list" class="news-list"><p class="empty-message">Đang tải tin tức…</p></div></section>
+          </div>
+        </section>
+        <section id="popup-view" class="view" aria-label="Popup sự kiện" hidden>
+          <div class="view-intro"><div><span class="section-code">03 / EVENT PROMO</span><h2>Popup <em>sự kiện.</em></h2></div><p>Chỉnh nội dung xuất hiện khi khách mở trang Faerie.</p></div>
+          <div class="popup-admin-layout">
+            <section class="panel popup-settings"><div class="panel-title"><span class="field-label">CẤU HÌNH POPUP</span></div>
+              <form id="popup-form">
+                <label class="popup-toggle"><input name="enabled" type="checkbox" /><span>Hiển thị popup trên website</span></label>
+                <label>Tiêu đề sự kiện<input name="title" maxlength="120" placeholder="Tên sự kiện Faerie" required /></label>
+                <label>Giới thiệu sự kiện<textarea name="description" rows="5" maxlength="1200" placeholder="Viết vài câu giới thiệu sự kiện…" required></textarea></label>
+                <label>Chọn ảnh từ thiết bị<input id="popup-image-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
+                <p class="popup-upload-note">Chọn JPG, PNG, WebP hoặc HEIC dưới 20 MB. Backend sẽ xử lý và thu nhỏ ảnh khi bạn bấm Lưu popup.</p>
+                <label>Hoặc nhập link ảnh có sẵn<input name="image" maxlength="600" placeholder="https://… hoặc images/events/…" /></label>
+                <label>Link sự kiện Facebook · không bắt buộc<input name="facebookUrl" type="url" maxlength="600" placeholder="https://www.facebook.com/events/…" /></label>
+                <p class="popup-field-note">Nếu có link Facebook, nút trên popup sẽ mở link đó. Nếu bỏ trống, nút sẽ mở câu chuyện sự kiện gần nhất trên website. Nút đóng xuất hiện sau 3 giây.</p>
+                <div class="form-actions"><span>Thay đổi sẽ hiện sau khi backend triển khai lại.</span><button class="button button-primary" type="submit">Lưu popup <span aria-hidden="true">↗</span></button></div>
+              </form>
+            </section>
+            <section class="panel popup-preview-panel" aria-label="Xem trước popup"><div class="panel-title"><span class="field-label">XEM TRƯỚC</span><strong id="popup-preview-status">Đang tải…</strong></div><div id="popup-preview"></div></section>
+          </div>
+        </section>
+        <section id="logs-view" class="view" aria-label="Nhật ký đăng nhập" hidden>
+          <div class="view-intro"><div><span class="section-code">04 / ACCESS HISTORY</span><h2>Nhật ký <em>đăng nhập.</em></h2></div><p>200 lần đăng nhập thành công gần nhất. Thiết bị được ước đoán từ trình duyệt.</p></div>
+          <div class="panel log-panel"><div class="panel-title"><span class="field-label">LỊCH SỬ TRUY CẬP</span><button id="logs-refresh" class="button button-outline" type="button">Làm mới</button></div><div class="log-table-wrap"><table class="log-table"><thead><tr><th>Thời gian</th><th>Username</th><th>IP</th><th>Thiết bị / trình duyệt</th></tr></thead><tbody id="logs-list"><tr><td colspan="4">Đang tải nhật ký…</td></tr></tbody></table></div></div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

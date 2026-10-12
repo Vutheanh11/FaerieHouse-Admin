@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: faeriehouse-admin
+    runtime: static
+    buildCommand: echo "Faerie House Admin static site"
+    staticPublishPath: public

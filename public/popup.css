@@ -1,0 +1,23 @@
+.popup-admin-layout { display: grid; grid-template-columns: minmax(360px, 1fr) minmax(320px, .9fr); gap: 18px; align-items: start; }
+.popup-settings form { display: grid; gap: 17px; padding: 22px; }
+.popup-settings label { display: grid; gap: 8px; color: #31513b; font-size: 13px; font-weight: 800; }
+.popup-settings input:not([type="checkbox"]), .popup-settings textarea { width: 100%; font-size: 15px; font-weight: 400; }
+.popup-settings input[type="file"] { padding: 9px 12px; background: #edf6e9; cursor: pointer; }
+.popup-upload-note { margin: -10px 0 0; color: #66816c; font-size: 12px; line-height: 1.6; }
+.popup-settings .popup-toggle { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: #edf6e9; border: 1px solid #c8dfc4; font-size: 14px; }
+.popup-toggle input { width: 20px; height: 20px; min-height: 0; accent-color: #245c37; }
+.popup-field-note { margin: 0; color: #66816c; font-size: 12px; line-height: 1.6; }
+.popup-preview-panel { position: sticky; top: 18px; overflow: hidden; }
+.popup-preview-panel .panel-title strong { color: #426a49; font-size: 13px; }
+.popup-preview { margin: 20px; background: #102017; color: #f6f3eb; border: 1px solid #8da982; box-shadow: 0 18px 44px #10201726; }
+.popup-preview.is-off { opacity: .55; }
+.popup-preview-image { position: relative; height: clamp(180px, 22vw, 260px); display: grid; place-items: center; overflow: hidden; background: #35503a; color: #b9d5ad; font-size: 64px; }
+.popup-preview-image img { width: 100%; height: 100%; object-fit: cover; }
+.popup-preview-unavailable { padding: 20px; color: #d7e5d2; font-size: 13px; line-height: 1.6; text-align: center; }
+.popup-preview-copy { padding: 23px; }
+.popup-preview-copy small { display: block; margin-bottom: 11px; color: #b9d5ad; font-size: 10px; font-weight: 900; letter-spacing: .14em; }
+.popup-preview-copy h3 { margin: 0 0 14px; color: #f6f3eb; font-size: clamp(23px, 2.4vw, 32px); line-height: 1.1; text-transform: uppercase; overflow-wrap: anywhere; }
+.popup-preview-copy p { margin: 0 0 20px; color: #d6e2d1; font-size: 14px; line-height: 1.65; white-space: pre-line; overflow-wrap: anywhere; }
+.popup-preview-cta { display: block; padding: 12px 14px; background: #b9d5ad; color: #102017; font-size: 12px; font-weight: 900; }
+@media (max-width: 1120px) { .popup-admin-layout { grid-template-columns: 1fr; } .popup-preview-panel { position: static; } }
+@media (max-width: 760px) { .popup-admin-layout { gap: 14px; } .popup-settings form { padding: 17px; } .popup-preview { margin: 16px; } .sidebar-nav { overflow-x: auto; } .sidebar-nav .nav-item { flex: 0 0 auto; min-height: 43px; white-space: nowrap; font-size: 12px; } }

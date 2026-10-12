@@ -1,0 +1,18 @@
+.editor-field { display: grid; gap: 7px; }
+.editor-label { color: #31513b; font-size: 13px; font-weight: 800; }
+.editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border: 1px solid #c6d7c6; border-bottom: 0; background: #eaf3e6; }
+.editor-toolbar button { display: grid; place-items: center; width: 36px; height: 34px; padding: 0; border: 1px solid #bfd2bb; background: #fbfdf9; color: #173223; font-size: 16px; }
+.editor-toolbar button:hover, .editor-toolbar button:focus-visible { background: #d2eacb; border-color: #568b67; }
+.editor-toolbar button:focus-visible, .news-editor:focus-visible, .editor-toolbar select:focus-visible { outline: 3px solid #90bd55; outline-offset: 2px; }
+.editor-size-label { margin-left: 10px; color: #31513b; font-size: 12px; font-weight: 800; }
+.editor-toolbar select { width: auto; min-height: 34px; padding: 4px 9px; font-size: 13px; }
+.news-editor { min-height: 210px; padding: 15px; border: 1px solid #c6d7c6; background: #f6faf4; color: #173223; font-size: 18px; line-height: 1.6; overflow-wrap: anywhere; outline: none; }
+.news-editor:focus { border-color: #568b67; background: #fff; }
+.news-editor:empty::before { content: attr(data-placeholder); color: #91a595; pointer-events: none; }
+.news-editor p, .news-editor div { margin: 0 0 .7em; }
+.news-editor font[size="2"] { font-size: 16px; }
+.news-editor font[size="3"] { font-size: 18px; }
+.news-editor font[size="4"] { font-size: 22px; }
+.news-editor font[size="5"] { font-size: 28px; }
+.editor-help { color: #708775; font-size: 12px; line-height: 1.5; }
+@media (max-width: 430px) { .editor-size-label { margin-left: 2px; } .news-editor { min-height: 180px; } }
