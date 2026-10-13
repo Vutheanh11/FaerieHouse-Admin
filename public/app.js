@@ -148,6 +148,8 @@ function setBusy(busy) {
   loginButton.disabled = busy;
   $("#auth-toggle").disabled = busy;
   if (memberButton) memberButton.disabled = busy || !state.session;
+  const memberImage = $("#member-form input[name=memberImage]");
+  if (memberImage) memberImage.disabled = busy || !state.session;
   newsButton.disabled = busy || !state.session;
   popupButton.disabled = busy || !state.session;
   $("#popup-image-file").disabled = busy || !state.session;
@@ -185,13 +187,14 @@ function renderMemberDetail() {
       <div class="form-row"><label>Chức vụ<input name="title" maxlength="100" required /></label><label>Nhóm<select name="group"><option value="Mentor">Mentor</option><option value="Supporter">Supporter</option><option value="Leadership">Ban điều hành</option><option value="Member">Member</option></select></label></div>
       <label>Thế hệ Faerie / Cohort<input name="cohort" maxlength="30" placeholder="2026" /></label>
       <label>Ảnh thành viên · URL hoặc đường dẫn ảnh Faerie<input name="photo" maxlength="600" /></label>
+      <label>Hoặc tải ảnh mới từ thiết bị<input name="memberImage" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
       <label>Facebook · URL<input name="facebookUrl" type="url" maxlength="600" /></label>
       <div class="form-row"><label>Ngày sinh · chỉ điền khi thành viên đồng ý công khai<input name="birthDate" type="date" /></label><label>Sở thích<input name="interests" maxlength="300" /></label></div>
       <label>Giới thiệu<textarea name="introduction" rows="3" maxlength="1200"></textarea></label>
       <label>Quote / thông điệp<textarea name="message" rows="3" maxlength="1200" placeholder="Một câu nói ngắn của thành viên"></textarea></label>
       <label>Chứng nhận · mỗi dòng: Tên | link HTTPS<textarea name="certificates" rows="3" placeholder="Ví dụ: Chứng nhận hoạt động | https://…"></textarea></label>
-      <div class="form-actions"><span>Thay đổi sẽ được lưu vào repo backend.</span><button class="button button-primary" type="submit" ${!state.session ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div>
-    </form><div class="profile-save-note">Ảnh cần là URL HTTPS hoặc đường dẫn đã có trên trang. Ngày sinh và chứng nhận sẽ xuất hiện công khai sau khi lưu.</div>`;
+      <div class="form-actions"><span>Thay đổi sẽ được lưu vào database.</span><button class="button button-primary" type="submit" ${!state.session ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div>
+    </form><div class="profile-save-note">Ảnh tải lên được nén và lưu trong database. Ngày sinh và chứng nhận sẽ xuất hiện công khai sau khi lưu.</div>`;
   const form = $("#member-form");
   ["name", "fullName", "title", "group", "cohort", "photo", "facebookUrl", "birthDate", "interests", "introduction", "message"].forEach((field) => {
     form.elements[field].value = person[field] ?? "";
@@ -470,14 +473,23 @@ $("#member-detail").addEventListener("submit", async (event) => {
   if (certificates.length) updated.certificates = certificates;
   else delete updated.certificates;
   if (state.members.some((person, index) => index !== state.selectedMemberIndex && person.name === updated.name)) return notice("Tên hiển thị đã có trong danh sách.", true);
-  const next = state.members.with(state.selectedMemberIndex, updated);
   setBusy(true);
   try {
+    const file = form.elements.memberImage.files?.[0];
+    if (file) {
+      notice("Đang nén và tải ảnh thành viên lên…");
+      const uploaded = await adminRequest("member-image", {
+        method: "POST",
+        body: JSON.stringify({ mimeType: popupMimeType(file), imageBase64: await imageBase64(file) }),
+      });
+      updated.photo = uploaded.image;
+    }
+    const next = state.members.with(state.selectedMemberIndex, updated);
     await saveFile("members", next);
     state.members = next;
     renderMemberList();
     renderMemberDetail();
-    notice(`Đã lưu hồ sơ ${updated.name}. API và trang công khai sẽ cập nhật sau khi Render triển khai.`);
+    notice(`Đã lưu hồ sơ ${updated.name}. Trang công khai sẽ cập nhật trong khoảng một phút.`);
   } catch (error) {
     notice(error.message, true);
   } finally {
