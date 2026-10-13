@@ -10,6 +10,9 @@ const state = {
   popup: null,
   selectedMemberIndex: null,
   session: "",
+  role: "",
+  accountType: "",
+  username: "",
   shas: { members: "", posts: "", popup: "" },
   busy: false,
 };
@@ -149,10 +152,12 @@ function setBusy(busy) {
   $("#auth-toggle").disabled = busy;
   if (memberButton) memberButton.disabled = busy || !state.session;
   const memberImage = $("#member-form input[name=memberImage]");
-  if (memberImage) memberImage.disabled = busy || !state.session;
+  if (memberImage) memberImage.disabled = busy || state.role !== "super";
   newsButton.disabled = busy || !state.session;
   popupButton.disabled = busy || !state.session;
   $("#popup-image-file").disabled = busy || !state.session;
+  $("#create-admin-form button[type=submit]").disabled = busy || state.role !== "super";
+  $("#change-password-form button[type=submit]").disabled = busy || state.accountType !== "database";
 }
 
 function renderCounts() {
@@ -193,25 +198,26 @@ function renderMemberDetail() {
       <label>Giới thiệu<textarea name="introduction" rows="3" maxlength="1200"></textarea></label>
       <label>Quote / thông điệp<textarea name="message" rows="3" maxlength="1200" placeholder="Một câu nói ngắn của thành viên"></textarea></label>
       <label>Chứng nhận · mỗi dòng: Tên | link HTTPS<textarea name="certificates" rows="3" placeholder="Ví dụ: Chứng nhận hoạt động | https://…"></textarea></label>
-      <div class="form-actions"><span>Thay đổi sẽ được lưu vào database.</span><button class="button button-primary" type="submit" ${!state.session ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div>
+      <div class="form-actions"><span>Thay đổi được lưu vào database.</span><button class="button button-primary" type="submit" ${state.role !== "super" ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div>
     </form><div class="profile-save-note">Ảnh tải lên được nén và lưu trong database. Ngày sinh và chứng nhận sẽ xuất hiện công khai sau khi lưu.</div>`;
   const form = $("#member-form");
   ["name", "fullName", "title", "group", "cohort", "photo", "facebookUrl", "birthDate", "interests", "introduction", "message"].forEach((field) => {
     form.elements[field].value = person[field] ?? "";
   });
   form.elements.certificates.value = Array.isArray(person.certificates) ? person.certificates.map((item) => `${item.title} | ${item.url}`).join("\n") : "";
-  form.querySelectorAll("input, select, textarea").forEach((input) => { input.disabled = !state.session; });
+  form.querySelectorAll("input, select, textarea").forEach((input) => { input.disabled = state.role !== "super"; });
 }
 
 function renderNews() {
+  const editableIds = new Set(state.posts.map((post) => post.id));
   $("#news-list").innerHTML = state.news.length ? state.news.map((item) => `
     <article class="news-row">
       ${safeAsset(item.images?.[0])
         ? `<img src="${escapeHtml(safeAsset(item.images[0]))}" alt="" loading="lazy" />`
         : `<span class="news-image-fallback">FAERIE<br />NEWS</span>`}
-      <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.date)}.${escapeHtml(item.year)} · ${escapeHtml(item.tag)}</small><p>${escapeHtml(item.description)}</p></div>
+      <div><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.date)}.${escapeHtml(item.year)} · ${escapeHtml(item.tag)}</small><p>${escapeHtml(item.description)}</p>${state.role === "super" && editableIds.has(item.id) ? `<button class="delete-post" type="button" data-delete-post="${escapeHtml(item.id)}">Xóa bài đăng</button>` : ""}</div>
     </article>`).join("") : `<p class="empty-message">Chưa có bài đăng.</p>`;
-  $("#news-hint").textContent = "Bài được lưu vào repo và xuất hiện sau khi Render cập nhật API.";
+  $("#news-hint").textContent = "Bài được lưu vào database và xuất hiện ngay.";
   $("#news-form button[type=submit]").disabled = !state.session || state.busy;
 }
 
@@ -245,20 +251,26 @@ function renderPopup() {
 }
 
 function renderAuth() {
-  $("#auth-status").textContent = state.session ? "Đã đăng nhập" : "Đã đăng xuất";
+  $("#auth-status").textContent = state.session ? `${state.role === "super" ? "Admin lớn" : "Admin nhỏ"} · ${state.username}` : "Đã đăng xuất";
+  document.querySelectorAll("[data-super-only]").forEach((element) => { element.hidden = state.role !== "super"; });
+  $("#change-password-panel").hidden = state.accountType !== "database";
+  $("#legacy-password-note").hidden = state.accountType !== "legacy";
   renderMemberDetail();
   renderNews();
   renderPopup();
 }
 
 function switchView(view) {
+  if (state.role !== "super" && (view === "members" || view === "logs")) return;
   state.view = view;
   $("#members-view").hidden = view !== "members";
   $("#news-view").hidden = view !== "news";
   $("#popup-view").hidden = view !== "popup";
   $("#logs-view").hidden = view !== "logs";
-  $("#page-title").textContent = view === "members" ? "Quản lý thành viên" : view === "news" ? "Xuất bản News" : view === "popup" ? "Popup sự kiện" : "Nhật ký đăng nhập";
+  $("#accounts-view").hidden = view !== "accounts";
+  $("#page-title").textContent = ({ members: "Quản lý thành viên", news: "Xuất bản News", popup: "Popup sự kiện", logs: "Nhật ký đăng nhập", accounts: "Tài khoản quản trị" })[view];
   if (view === "logs") void loadLogs();
+  if (view === "accounts" && state.role === "super") void loadUsers();
   document.querySelectorAll("[data-view]").forEach((button) => {
     const active = button.dataset.view === view;
     button.classList.toggle("active", active);
@@ -307,7 +319,7 @@ async function adminRequest(path, options = {}) {
   });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401 && path !== "login") logout("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+    if (response.status === 401 && path !== "login" && path !== "change-password") logout("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
     throw new Error(result.error || `API chưa phản hồi (${response.status}).`);
   }
   return result;
@@ -329,9 +341,24 @@ async function loadLogs() {
   }
 }
 
+async function loadUsers() {
+  if (state.role !== "super") return;
+  const list = $("#users-list");
+  list.innerHTML = `<p class="empty-message">Đang tải tài khoản…</p>`;
+  try {
+    const { users } = await adminRequest("users");
+    list.innerHTML = users.length ? users.map((user) => `<div class="admin-user-row"><strong>${escapeHtml(user.username)}</strong><span>${user.role === "super" ? "Admin lớn" : "Admin nhỏ"}${user.disabled ? " · Đã khóa" : ""}</span></div>`).join("") : `<p class="empty-message">Chưa có tài khoản trong database.</p>`;
+  } catch (error) {
+    list.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
+  }
+}
+
 function logout(message = "") {
   clearPopupPreview();
   state.session = "";
+  state.role = "";
+  state.accountType = "";
+  state.username = "";
   try { sessionStorage.removeItem(SESSION_KEY); } catch { /* Storage may be disabled. */ }
   state.shas = { members: "", posts: "", popup: "" };
   state.members = [];
@@ -357,22 +384,56 @@ async function enterAdmin() {
       await new Promise((resolve) => setTimeout(resolve, 1500 * (attempt + 1)));
     }
   }
-  state.members = data.members.data;
+  state.role = data.role;
+  state.accountType = data.accountType;
+  state.username = data.username;
+  state.members = data.members?.data ?? [];
   state.posts = data.posts.data;
   state.popup = data.popup.data;
-  state.shas = { members: data.members.sha, posts: data.posts.sha, popup: data.popup.sha };
+  state.shas = { members: data.members?.sha ?? "", posts: data.posts.sha, popup: data.popup.sha };
   state.selectedMemberIndex = state.members.length ? 0 : null;
   renderCounts();
   renderMemberList();
   renderAuth();
   $("#login-screen").hidden = true;
   $(".shell").hidden = false;
+  switchView(state.role === "super" ? "members" : "news");
   void loadPublicData();
   notice(`Đã đăng nhập với tài khoản ${data.username}.`);
 }
 
 document.querySelectorAll("[data-view]").forEach((button) => button.addEventListener("click", () => switchView(button.dataset.view)));
 $("#logs-refresh").addEventListener("click", loadLogs);
+$("#users-refresh").addEventListener("click", loadUsers);
+$("#create-admin-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.role !== "super" || state.busy) return;
+  const form = event.target;
+  const values = Object.fromEntries(new FormData(form));
+  setBusy(true);
+  try {
+    const { user } = await adminRequest("users", { method: "POST", body: JSON.stringify({ username: values.username.trim(), password: values.password }) });
+    form.reset();
+    await loadUsers();
+    notice(`Đã tạo admin nhỏ “${user.username}”. Hãy gửi mật khẩu cho người đó qua kênh riêng.`);
+  } catch (error) { notice(error.message, true); }
+  finally { setBusy(false); }
+});
+$("#change-password-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (state.accountType !== "database" || state.busy) return;
+  const form = event.target;
+  const values = Object.fromEntries(new FormData(form));
+  setBusy(true);
+  try {
+    const session = await adminRequest("change-password", { method: "POST", body: JSON.stringify(values) });
+    state.session = session.token;
+    try { sessionStorage.setItem(SESSION_KEY, state.session); } catch { /* Session still works in memory. */ }
+    form.reset();
+    notice("Đã đổi mật khẩu. Các phiên đăng nhập cũ đã hết hiệu lực.");
+  } catch (error) { notice(error.message, true); }
+  finally { setBusy(false); }
+});
 document.addEventListener("selectionchange", rememberEditorSelection);
 $(".editor-toolbar").addEventListener("mousedown", (event) => {
   if (event.target.closest("button[data-format]")) event.preventDefault();
@@ -441,7 +502,7 @@ $("#login-form").addEventListener("submit", async (event) => {
 $("#member-detail").addEventListener("submit", async (event) => {
   if (event.target.id !== "member-form") return;
   event.preventDefault();
-  if (!state.session || state.busy) return;
+  if (state.role !== "super" || state.busy) return;
   const form = event.target;
   const values = Object.fromEntries(new FormData(form));
   const updated = {
@@ -489,7 +550,7 @@ $("#member-detail").addEventListener("submit", async (event) => {
     state.members = next;
     renderMemberList();
     renderMemberDetail();
-    notice(`Đã lưu hồ sơ ${updated.name}. Trang công khai sẽ cập nhật trong khoảng một phút.`);
+    notice(`Đã lưu hồ sơ ${updated.name} vào database.`);
   } catch (error) {
     notice(error.message, true);
   } finally {
@@ -521,8 +582,9 @@ $("#news-form").addEventListener("submit", async (event) => {
   };
   setBusy(true);
   try {
+    const result = await adminRequest("posts", { method: "POST", body: JSON.stringify({ post }) });
+    state.shas.posts = result.sha;
     const next = [post, ...state.posts];
-    await saveFile("posts", next);
     state.posts = next;
     state.news = [post, ...state.news].sort((first, second) => `${second.year}${second.date.slice(3)}${second.date.slice(0, 2)}`.localeCompare(`${first.year}${first.date.slice(3)}${first.date.slice(0, 2)}`));
     form.reset();
@@ -531,12 +593,30 @@ $("#news-form").addEventListener("submit", async (event) => {
     form.elements.date.valueAsDate = new Date();
     renderCounts();
     renderNews();
-    notice(`Đã đăng “${post.title}”. Bài sẽ xuất hiện trên trang Faerie sau khi Render cập nhật API.`);
+    notice(`Đã đăng “${post.title}”. Bài đã được lưu vào database.`);
   } catch (error) {
     notice(error.message, true);
   } finally {
     setBusy(false);
   }
+});
+
+$("#news-list").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-delete-post]");
+  if (!button || state.role !== "super" || state.busy) return;
+  const post = state.posts.find((item) => item.id === button.dataset.deletePost);
+  if (!post || !window.confirm(`Xóa bài “${post.title}”? Thao tác này không thể hoàn tác trên Admin.`)) return;
+  setBusy(true);
+  try {
+    const result = await adminRequest(`posts/${encodeURIComponent(post.id)}`, { method: "DELETE" });
+    state.shas.posts = result.sha;
+    state.posts = state.posts.filter((item) => item.id !== post.id);
+    state.news = state.news.filter((item) => item.id !== post.id);
+    renderCounts();
+    renderNews();
+    notice(`Đã xóa bài “${post.title}”.`);
+  } catch (error) { notice(error.message, true); }
+  finally { setBusy(false); }
 });
 
 $("#popup-form").addEventListener("submit", async (event) => {
@@ -570,7 +650,7 @@ $("#popup-form").addEventListener("submit", async (event) => {
     await saveFile("popup", popup);
     state.popup = popup;
     renderPopup();
-    notice("Đã lưu popup. Website sẽ cập nhật sau khi Render triển khai backend.");
+    notice("Đã lưu popup vào database. Website sẽ thấy nội dung mới khi tải lại.");
   } catch (error) {
     notice(error.message, true);
   } finally {

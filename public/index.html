@@ -37,10 +37,11 @@
       <aside class="sidebar">
         <div class="brand"><img src="https://faeriehouse.onrender.com/images/faerie-icon.png" alt="" /><div><strong>FAERIE HOUSE</strong><span>CONTROL ROOM / 2026</span></div></div>
         <nav class="sidebar-nav" aria-label="Quản trị">
-          <button class="nav-item active" type="button" data-view="members" aria-current="page"><span class="nav-glyph">01</span><span>Thành viên</span><span id="sidebar-member-count" class="nav-count">—</span></button>
+          <button class="nav-item active" type="button" data-view="members" data-super-only aria-current="page"><span class="nav-glyph">01</span><span>Thành viên</span><span id="sidebar-member-count" class="nav-count">—</span></button>
           <button class="nav-item" type="button" data-view="news"><span class="nav-glyph">02</span><span>News</span><span id="sidebar-news-count" class="nav-count">—</span></button>
           <button class="nav-item" type="button" data-view="popup"><span class="nav-glyph">03</span><span>Popup sự kiện</span></button>
-          <button class="nav-item" type="button" data-view="logs"><span class="nav-glyph">04</span><span>Nhật ký đăng nhập</span></button>
+          <button class="nav-item" type="button" data-view="logs" data-super-only><span class="nav-glyph">04</span><span>Nhật ký đăng nhập</span></button>
+          <button class="nav-item" type="button" data-view="accounts"><span class="nav-glyph">05</span><span>Tài khoản</span></button>
         </nav>
         <div class="sidebar-bottom">
           <div class="live-indicator"><i></i><span id="api-status">Đang kết nối API…</span></div>
@@ -93,7 +94,7 @@
                 </div>
                 <label>Link ảnh (không bắt buộc) <input name="image" type="url" placeholder="https://…" /></label>
                 <label>Địa điểm <input name="location" maxlength="100" value="Faerie House" /></label>
-                <div class="form-actions"><span id="news-hint">Bài viết được lưu qua API quản trị.</span><button class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button></div>
+                <div class="form-actions"><span id="news-hint">Bài viết được lưu vào database và xuất hiện ngay.</span><button class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button></div>
               </form>
             </section>
             <section class="published panel"><div class="panel-title"><span class="field-label">ĐÃ XUẤT BẢN</span><strong id="news-count">— câu chuyện</strong></div><div id="news-list" class="news-list"><p class="empty-message">Đang tải tin tức…</p></div></section>
@@ -121,6 +122,31 @@
         <section id="logs-view" class="view" aria-label="Nhật ký đăng nhập" hidden>
           <div class="view-intro"><div><span class="section-code">04 / ACCESS HISTORY</span><h2>Nhật ký <em>đăng nhập.</em></h2></div><p>200 lần đăng nhập thành công gần nhất. Thiết bị được ước đoán từ trình duyệt.</p></div>
           <div class="panel log-panel"><div class="panel-title"><span class="field-label">LỊCH SỬ TRUY CẬP</span><button id="logs-refresh" class="button button-outline" type="button">Làm mới</button></div><div class="log-table-wrap"><table class="log-table"><thead><tr><th>Thời gian</th><th>Username</th><th>IP</th><th>Thiết bị / trình duyệt</th></tr></thead><tbody id="logs-list"><tr><td colspan="4">Đang tải nhật ký…</td></tr></tbody></table></div></div>
+        </section>
+        <section id="accounts-view" class="view" aria-label="Tài khoản quản trị" hidden>
+          <div class="view-intro"><div><span class="section-code">05 / ACCESS CONTROL</span><h2>Tài khoản <em>quản trị.</em></h2></div><p>Admin nhỏ chỉ được đăng News và chỉnh popup. Chỉ admin lớn được xóa bài.</p></div>
+          <div class="account-layout">
+            <section id="create-admin-panel" class="panel account-panel" data-super-only>
+              <div class="panel-title"><span class="field-label">ADMIN LỚN</span><strong>Tạo admin nhỏ</strong></div>
+              <form id="create-admin-form" class="account-form">
+                <label>Username<input name="username" minlength="3" maxlength="40" pattern="[a-zA-Z0-9._-]+" autocomplete="off" required /></label>
+                <label>Mật khẩu ban đầu<input name="password" type="password" minlength="12" maxlength="200" autocomplete="new-password" required /></label>
+                <p>Admin nhỏ không thể sửa thành viên, xem log, tạo tài khoản hay xóa bài.</p>
+                <button class="button button-primary" type="submit">Tạo tài khoản ↗</button>
+              </form>
+              <div class="panel-title"><span class="field-label">DANH SÁCH</span><button id="users-refresh" class="button button-outline" type="button">Làm mới</button></div>
+              <div id="users-list" class="admin-user-list"><p class="empty-message">Đang tải tài khoản…</p></div>
+            </section>
+            <section id="change-password-panel" class="panel account-panel">
+              <div class="panel-title"><span class="field-label">BẢO MẬT</span><strong>Đổi mật khẩu của tôi</strong></div>
+              <form id="change-password-form" class="account-form">
+                <label>Mật khẩu hiện tại<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+                <label>Mật khẩu mới<input name="newPassword" type="password" minlength="12" maxlength="200" autocomplete="new-password" required /></label>
+                <button class="button button-primary" type="submit">Đổi mật khẩu ↗</button>
+              </form>
+            </section>
+            <p id="legacy-password-note" class="legacy-password-note" hidden>Tài khoản quản trị cũ đang lấy mật khẩu từ Render Environment; hãy đổi mật khẩu tại Render.</p>
+          </div>
         </section>
       </main>
     </div>
