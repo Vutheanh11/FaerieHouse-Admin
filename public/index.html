@@ -27,6 +27,8 @@
           <input id="login-username" type="text" autocomplete="username" spellcheck="false" required />
           <label for="login-password">Password</label>
           <input id="login-password" type="password" autocomplete="current-password" required />
+          <label id="login-code-label" for="login-code" hidden>Mã xác thực 6 số</label>
+          <input id="login-code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" hidden />
           <p id="login-error" class="login-error" role="alert" hidden></p>
           <button id="login-submit" class="button button-primary" type="submit">Đăng nhập <span aria-hidden="true">↗</span></button>
         </form>
@@ -52,7 +54,7 @@
       <main class="main">
         <header class="topbar">
           <div><span class="eyebrow">FAERIE / ADMINISTRATOR</span><h1 id="page-title">Quản lý thành viên</h1></div>
-          <div class="account-box"><span id="auth-status" class="account-status">Đã đăng nhập</span><button id="auth-toggle" class="button button-outline" type="button">Đăng xuất</button></div>
+          <div class="account-box"><label class="campus-select-label">Cơ sở <select id="campus-select" aria-label="Chọn cơ sở quản lý"><option value="hcm">TP.HCM</option><option value="quy-nhon">Quy Nhơn</option></select></label><span id="auth-status" class="account-status">Đã đăng nhập</span><button id="auth-toggle" class="button button-outline" type="button">Đăng xuất</button></div>
         </header>
 
         <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
@@ -61,7 +63,7 @@
           <div class="view-intro"><div><span class="section-code">01 / MEMBER DIRECTORY</span><h2>Gương mặt Faerie <em>2026.</em></h2></div><p>Chọn một thành viên để xem ảnh và cập nhật hồ sơ.</p></div>
           <div class="member-layout">
             <div class="directory panel">
-              <div class="directory-head"><div><span class="field-label">DANH SÁCH</span><strong id="member-count">— thành viên</strong></div><input id="member-search" type="search" placeholder="Tìm tên, vai trò…" aria-label="Tìm thành viên" /></div>
+              <div class="directory-head"><div><span class="field-label">DANH SÁCH</span><strong id="member-count">— thành viên</strong></div><div><button id="add-member" class="button button-outline" type="button">+ Thêm</button><input id="member-search" type="search" placeholder="Tìm tên, vai trò…" aria-label="Tìm thành viên" /></div></div>
               <div id="member-list" class="member-list"><p class="empty-message">Đang tải thành viên…</p></div>
             </div>
             <section id="member-detail" class="detail panel" aria-label="Hồ sơ thành viên"><div class="empty-detail"><span>✦</span><h3>Chọn một thành viên</h3><p>Ảnh và thông tin sẽ hiển thị ở đây.</p></div></section>
@@ -71,7 +73,7 @@
         <section id="news-view" class="view" aria-label="Tin tức" hidden>
           <div class="view-intro"><div><span class="section-code">02 / NEWS DESK</span><h2>Đăng bài <em>News.</em></h2></div><p>Bài mới sẽ xuất hiện trên tab News của trang Faerie sau khi API cập nhật.</p></div>
           <div class="news-layout">
-            <section class="composer panel"><div class="panel-title"><span class="field-label">BÀI ĐĂNG MỚI</span><strong>Biên tập nội dung</strong></div>
+            <section class="composer panel"><div class="panel-title"><span class="field-label" id="news-form-mode">BÀI ĐĂNG MỚI</span><strong>Biên tập nội dung</strong></div>
               <form id="news-form">
                 <label>Tiêu đề <input name="title" maxlength="100" required placeholder="Ví dụ: Ngày hội Faerie" /></label>
                 <div class="form-row"><label>Ngày đăng <input name="date" type="date" required /></label><label>Nhãn <input name="tag" maxlength="30" value="NEWS" required /></label></div>
@@ -92,12 +94,14 @@
                   <div id="news-editor" class="news-editor" contenteditable="true" role="textbox" aria-labelledby="news-editor-label" aria-multiline="true" data-placeholder="Viết câu chuyện của nhà Faerie…"></div>
                   <small class="editor-help">Chọn đoạn chữ rồi nhấn nút định dạng. Phần mô tả ngắn trên thẻ News sẽ tự lấy từ bài viết.</small>
                 </div>
-                <label>Link ảnh (không bắt buộc) <input name="image" type="url" placeholder="https://…" /></label>
+                <label>Ảnh bài viết · chọn tối đa 4 ảnh<input id="news-image-files" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple /></label>
+                <label>Hoặc link ảnh bìa <input name="image" type="url" placeholder="https://…" /></label>
                 <label>Địa điểm <input name="location" maxlength="100" value="Faerie House" /></label>
-                <div class="form-actions"><span id="news-hint">Bài viết được lưu vào database và xuất hiện ngay.</span><button class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button></div>
+                <div class="form-actions"><span id="news-hint">Chọn Xem trước trước khi xuất bản.</span><button id="news-preview-button" class="button button-outline" type="button">Xem trước</button><button id="news-draft-button" class="button button-outline" type="button">Lưu nháp</button><button id="news-publish-button" class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button><button id="news-cancel-edit" class="button button-outline" type="button" hidden>Hủy sửa</button></div>
               </form>
+              <div id="news-preview" class="news-preview" hidden></div>
             </section>
-            <section class="published panel"><div class="panel-title"><span class="field-label">ĐÃ XUẤT BẢN</span><strong id="news-count">— câu chuyện</strong></div><div id="news-list" class="news-list"><p class="empty-message">Đang tải tin tức…</p></div></section>
+            <section class="published panel"><div class="panel-title"><span class="field-label">BÀI TRONG DATABASE</span><strong id="news-count">— bài</strong></div><div id="news-list" class="news-list"><p class="empty-message">Đang tải tin tức…</p></div></section>
           </div>
         </section>
         <section id="popup-view" class="view" aria-label="Popup sự kiện" hidden>
@@ -106,22 +110,22 @@
             <section class="panel popup-settings"><div class="panel-title"><span class="field-label">CẤU HÌNH POPUP</span></div>
               <form id="popup-form">
                 <label class="popup-toggle"><input name="enabled" type="checkbox" /><span>Hiển thị popup trên website</span></label>
-                <label>Tiêu đề sự kiện<input name="title" maxlength="120" placeholder="Tên sự kiện Faerie" required /></label>
-                <label>Giới thiệu sự kiện<textarea name="description" rows="5" maxlength="1200" placeholder="Viết vài câu giới thiệu sự kiện…" required></textarea></label>
+                <label>Tiêu đề sự kiện<input name="title" maxlength="120" placeholder="Tên sự kiện Faerie" /></label>
+                <label>Giới thiệu sự kiện<textarea name="description" rows="5" maxlength="1200" placeholder="Viết vài câu giới thiệu sự kiện…"></textarea></label>
                 <label>Chọn ảnh từ thiết bị<input id="popup-image-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
                 <p class="popup-upload-note">Chọn JPG, PNG, WebP hoặc HEIC dưới 20 MB. Backend sẽ xử lý và thu nhỏ ảnh khi bạn bấm Lưu popup.</p>
                 <label>Hoặc nhập link ảnh có sẵn<input name="image" maxlength="600" placeholder="https://… hoặc images/events/…" /></label>
                 <label>Link sự kiện Facebook · không bắt buộc<input name="facebookUrl" type="url" maxlength="600" placeholder="https://www.facebook.com/events/…" /></label>
                 <p class="popup-field-note">Nếu có link Facebook, nút trên popup sẽ mở link đó. Nếu bỏ trống, nút sẽ mở câu chuyện sự kiện gần nhất trên website. Nút đóng xuất hiện sau 3 giây.</p>
-                <div class="form-actions"><span>Thay đổi sẽ hiện sau khi backend triển khai lại.</span><button class="button button-primary" type="submit">Lưu popup <span aria-hidden="true">↗</span></button></div>
+                <div class="form-actions"><span>Thay đổi sẽ hiện khi tải lại website.</span><button class="button button-primary" type="submit">Lưu popup <span aria-hidden="true">↗</span></button></div>
               </form>
             </section>
             <section class="panel popup-preview-panel" aria-label="Xem trước popup"><div class="panel-title"><span class="field-label">XEM TRƯỚC</span><strong id="popup-preview-status">Đang tải…</strong></div><div id="popup-preview"></div></section>
           </div>
         </section>
         <section id="logs-view" class="view" aria-label="Nhật ký đăng nhập" hidden>
-          <div class="view-intro"><div><span class="section-code">04 / ACCESS HISTORY</span><h2>Nhật ký <em>đăng nhập.</em></h2></div><p>200 lần đăng nhập thành công gần nhất. Thiết bị được ước đoán từ trình duyệt.</p></div>
-          <div class="panel log-panel"><div class="panel-title"><span class="field-label">LỊCH SỬ TRUY CẬP</span><button id="logs-refresh" class="button button-outline" type="button">Làm mới</button></div><div class="log-table-wrap"><table class="log-table"><thead><tr><th>Thời gian</th><th>Username</th><th>IP</th><th>Thiết bị / trình duyệt</th></tr></thead><tbody id="logs-list"><tr><td colspan="4">Đang tải nhật ký…</td></tr></tbody></table></div></div>
+          <div class="view-intro"><div><span class="section-code">04 / ACCESS HISTORY</span><h2>Nhật ký <em>đăng nhập.</em></h2></div><p>200 lần đăng nhập gần nhất, gồm thành công và thất bại. Thiết bị được ước đoán từ trình duyệt.</p></div>
+          <div class="panel log-panel"><div class="panel-title"><span class="field-label">LỊCH SỬ TRUY CẬP</span><button id="logs-refresh" class="button button-outline" type="button">Làm mới</button></div><div class="log-table-wrap"><table class="log-table"><thead><tr><th>Thời gian</th><th>Username</th><th>Trạng thái</th><th>IP</th><th>Thiết bị / trình duyệt</th></tr></thead><tbody id="logs-list"><tr><td colspan="5">Đang tải nhật ký…</td></tr></tbody></table></div></div>
         </section>
         <section id="accounts-view" class="view" aria-label="Tài khoản quản trị" hidden>
           <div class="view-intro"><div><span class="section-code">05 / ACCESS CONTROL</span><h2>Tài khoản <em>quản trị.</em></h2></div><p>Admin nhỏ chỉ được đăng News và chỉnh popup. Chỉ admin lớn được xóa bài.</p></div>
@@ -143,6 +147,26 @@
                 <label>Mật khẩu hiện tại<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
                 <label>Mật khẩu mới<input name="newPassword" type="password" minlength="12" maxlength="200" autocomplete="new-password" required /></label>
                 <button class="button button-primary" type="submit">Đổi mật khẩu ↗</button>
+              </form>
+            </section>
+            <section id="mfa-panel" class="panel account-panel" hidden>
+              <div class="panel-title"><span class="field-label">XÁC THỰC HAI BƯỚC</span><strong id="mfa-status">Đang kiểm tra…</strong></div>
+              <form id="mfa-setup-form" class="account-form">
+                <p>Dùng ứng dụng xác thực để bảo vệ tài khoản admin lớn. Nhập mật khẩu hiện tại để bắt đầu.</p>
+                <label>Mật khẩu hiện tại<input name="password" type="password" autocomplete="current-password" required /></label>
+                <button class="button button-primary" type="submit">Tạo mã thiết lập ↗</button>
+              </form>
+              <form id="mfa-enable-form" class="account-form" hidden>
+                <p>Thêm tài khoản thủ công trong ứng dụng xác thực bằng khóa sau. Lưu khóa ở nơi an toàn; nếu mất thiết bị và khóa, bạn sẽ cần can thiệp database để khôi phục quyền truy cập.</p>
+                <output id="mfa-secret" class="mfa-secret"></output>
+                <label>Mã 6 số trong ứng dụng<input name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required /></label>
+                <button class="button button-primary" type="submit">Bật xác thực hai bước ↗</button>
+              </form>
+              <form id="mfa-disable-form" class="account-form" hidden>
+                <p>Xác thực hai bước đang bật. Chỉ tắt khi bạn đổi điện thoại hoặc cần thiết lập lại.</p>
+                <label>Mật khẩu hiện tại<input name="password" type="password" autocomplete="current-password" required /></label>
+                <label>Mã 6 số<input name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required /></label>
+                <button class="button button-outline" type="submit">Tắt xác thực hai bước</button>
               </form>
             </section>
             <p id="legacy-password-note" class="legacy-password-note" hidden>Tài khoản quản trị cũ đang lấy mật khẩu từ Render Environment; hãy đổi mật khẩu tại Render.</p>
