@@ -159,11 +159,13 @@ function setBusy(busy) {
   state.busy = busy;
   const loginButton = $("#login-submit");
   const memberButton = $("#member-form button[type=submit]");
+  const memberDeleteButton = $("#delete-member");
   const newsButton = $("#news-form button[type=submit]");
   const popupButton = $("#popup-form button[type=submit]");
   loginButton.disabled = busy;
   $("#auth-toggle").disabled = busy;
   if (memberButton) memberButton.disabled = busy || !state.session;
+  if (memberDeleteButton) memberDeleteButton.disabled = busy || state.role !== "super";
   const memberImage = $("#member-form input[name=memberImage]");
   if (memberImage) memberImage.disabled = busy || state.role !== "super";
   newsButton.disabled = busy || !state.session;
@@ -213,7 +215,7 @@ function renderMemberDetail() {
       <label>Giới thiệu<textarea name="introduction" rows="3" maxlength="1200"></textarea></label>
       <label>Quote / thông điệp<textarea name="message" rows="3" maxlength="1200" placeholder="Một câu nói ngắn của thành viên"></textarea></label>
       <label>Chứng nhận · mỗi dòng: Tên | link HTTPS<textarea name="certificates" rows="3" placeholder="Ví dụ: Chứng nhận hoạt động | https://…"></textarea></label>
-      <div class="form-actions"><span>Thay đổi được lưu vào database của ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}.</span><button class="button button-primary" type="submit" ${state.role !== "super" ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div>
+      <div class="form-actions"><span>Thay đổi được lưu vào database của ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}.</span><div class="member-form-actions"><button id="delete-member" class="button button-danger" type="button" ${state.selectedMemberIndex < 0 || state.role !== "super" ? "hidden" : ""}>Xóa hồ sơ</button><button class="button button-primary" type="submit" ${state.role !== "super" ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div></div>
     </form><div class="profile-save-note">Ảnh tải lên được nén và lưu trong database. Ngày sinh và chứng nhận sẽ xuất hiện công khai sau khi lưu.</div>`;
   const form = $("#member-form");
   ["name", "fullName", "title", "group", "cohort", "photo", "facebookUrl", "birthDate", "interests", "introduction", "message"].forEach((field) => {
@@ -665,6 +667,28 @@ $("#member-detail").addEventListener("submit", async (event) => {
     renderMemberList();
     renderMemberDetail();
     notice(`Đã lưu hồ sơ ${updated.name} vào database.`);
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    setBusy(false);
+  }
+});
+$("#member-detail").addEventListener("click", async (event) => {
+  const button = event.target.closest("#delete-member");
+  const index = state.selectedMemberIndex;
+  const person = index >= 0 ? state.members[index] : null;
+  if (!button || !person || campusOf(person) !== state.campus || state.role !== "super" || state.busy) return;
+  if (!window.confirm(`Xóa vĩnh viễn hồ sơ “${person.name}” khỏi cơ sở ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}? Không thể hoàn tác.`)) return;
+  setBusy(true);
+  try {
+    const next = state.members.filter((_, memberIndex) => memberIndex !== index);
+    await saveFile("members", next);
+    state.members = next;
+    state.selectedMemberIndex = membersHere()[0]?.index ?? null;
+    renderCounts();
+    renderMemberList();
+    renderMemberDetail();
+    notice(`Đã xóa hồ sơ ${person.name} khỏi database.`);
   } catch (error) {
     notice(error.message, true);
   } finally {
