@@ -46,6 +46,7 @@ const campusOf = (item) => item?.campus === "quy-nhon" ? "quy-nhon" : "hcm";
 const statusOf = (post) => post?.status ?? "published";
 const membersHere = () => state.members.map((person, index) => ({ person, index })).filter(({ person }) => campusOf(person) === state.campus);
 const postsHere = () => state.posts.filter((post) => campusOf(post) === state.campus);
+const canManageMembers = () => state.role === "super" || (state.role === "campus_admin" && state.campus === "quy-nhon");
 const popupDocument = (value) => value?.hcm ? value : { hcm: value ?? { enabled: false, title: "", description: "", image: "", facebookUrl: "" }, "quy-nhon": { enabled: false, title: "", description: "", image: "", facebookUrl: "" } };
 let popupPreviewUrl = "";
 function clearPopupPreview() {
@@ -165,9 +166,9 @@ function setBusy(busy) {
   loginButton.disabled = busy;
   $("#auth-toggle").disabled = busy;
   if (memberButton) memberButton.disabled = busy || !state.session;
-  if (memberDeleteButton) memberDeleteButton.disabled = busy || state.role !== "super";
+  if (memberDeleteButton) memberDeleteButton.disabled = busy || !canManageMembers();
   const memberImage = $("#member-form input[name=memberImage]");
-  if (memberImage) memberImage.disabled = busy || state.role !== "super";
+  if (memberImage) memberImage.disabled = busy || !canManageMembers();
   newsButton.disabled = busy || !state.session;
   $("#news-draft-button").disabled = busy || !state.session;
   $("#news-preview-button").disabled = busy || !state.session;
@@ -215,14 +216,14 @@ function renderMemberDetail() {
       <label>Giới thiệu<textarea name="introduction" rows="3" maxlength="1200"></textarea></label>
       <label>Quote / thông điệp<textarea name="message" rows="3" maxlength="1200" placeholder="Một câu nói ngắn của thành viên"></textarea></label>
       <label>Chứng nhận · mỗi dòng: Tên | link HTTPS<textarea name="certificates" rows="3" placeholder="Ví dụ: Chứng nhận hoạt động | https://…"></textarea></label>
-      <div class="form-actions"><span>Thay đổi được lưu vào database của ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}.</span><div class="member-form-actions"><button id="delete-member" class="button button-danger" type="button" ${state.selectedMemberIndex < 0 || state.role !== "super" ? "hidden" : ""}>Xóa hồ sơ</button><button class="button button-primary" type="submit" ${state.role !== "super" ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div></div>
+      <div class="form-actions"><span>Thay đổi được lưu vào database của ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}.</span><div class="member-form-actions"><button id="delete-member" class="button button-danger" type="button" ${state.selectedMemberIndex < 0 || !canManageMembers() ? "hidden" : ""}>Xóa hồ sơ</button><button class="button button-primary" type="submit" ${!canManageMembers() ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div></div>
     </form><div class="profile-save-note">Ảnh tải lên được nén và lưu trong database. Ngày sinh và chứng nhận sẽ xuất hiện công khai sau khi lưu.</div>`;
   const form = $("#member-form");
   ["name", "fullName", "title", "group", "cohort", "photo", "facebookUrl", "birthDate", "interests", "introduction", "message"].forEach((field) => {
     form.elements[field].value = person[field] ?? "";
   });
   form.elements.certificates.value = Array.isArray(person.certificates) ? person.certificates.map((item) => `${item.title} | ${item.url}`).join("\n") : "";
-  form.querySelectorAll("input, select, textarea").forEach((input) => { input.disabled = state.role !== "super"; });
+  form.querySelectorAll("input, select, textarea").forEach((input) => { input.disabled = !canManageMembers(); });
 }
 
 function renderNews() {
@@ -275,8 +276,11 @@ function renderPopup() {
 }
 
 function renderAuth() {
-  $("#auth-status").textContent = state.session ? `${state.role === "super" ? "Admin lớn" : "Admin nhỏ"} · ${state.username}` : "Đã đăng xuất";
+  const roleLabel = state.role === "super" ? "Admin lớn" : state.role === "campus_admin" ? "Admin cơ sở Quy Nhơn" : "Admin nhỏ";
+  $("#auth-status").textContent = state.session ? `${roleLabel} · ${state.username}` : "Đã đăng xuất";
   document.querySelectorAll("[data-super-only]").forEach((element) => { element.hidden = state.role !== "super"; });
+  document.querySelectorAll("[data-member-admin]").forEach((element) => { element.hidden = !canManageMembers(); });
+  $("#campus-select").disabled = state.role === "campus_admin";
   $("#change-password-panel").hidden = state.accountType !== "database";
   $("#legacy-password-note").hidden = state.accountType !== "legacy";
   $("#mfa-panel").hidden = state.role !== "super" || state.accountType !== "database";
@@ -290,7 +294,7 @@ function renderAuth() {
 }
 
 function switchView(view) {
-  if (state.role !== "super" && (view === "members" || view === "logs")) return;
+  if ((view === "members" && !canManageMembers()) || (view === "logs" && state.role !== "super")) return;
   state.view = view;
   $("#members-view").hidden = view !== "members";
   $("#news-view").hidden = view !== "news";
@@ -378,7 +382,17 @@ async function loadUsers() {
   list.innerHTML = `<p class="empty-message">Đang tải tài khoản…</p>`;
   try {
     const { users } = await adminRequest("users");
-    list.innerHTML = users.length ? users.map((user) => `<div class="admin-user-row"><strong>${escapeHtml(user.username)}</strong><span>${user.role === "super" ? "Admin lớn" : "Admin nhỏ"}${user.disabled ? " · Đã khóa" : ""}</span></div>`).join("") : `<p class="empty-message">Chưa có tài khoản trong database.</p>`;
+    list.innerHTML = users.length ? users.map((user) => {
+      const roleLabel = user.role === "super" ? "Admin lớn" : user.role === "campus_admin" ? "Admin cơ sở Quy Nhơn" : "Admin nhỏ";
+      const manageable = user.role === "editor" || user.role === "campus_admin";
+      return `<div class="admin-user-row">
+        <div class="admin-user-info"><strong>${escapeHtml(user.username)}</strong><span>${roleLabel}${user.disabled ? " · Đã vô hiệu hóa" : ""}</span></div>
+        ${manageable ? `<div class="admin-user-actions">
+          <button class="button button-outline" type="button" data-admin-user="${escapeHtml(user.username)}" data-admin-role="${user.role === "campus_admin" ? "editor" : "campus_admin"}">${user.role === "campus_admin" ? "Đổi thành Admin nhỏ" : "Cấp quyền cơ sở Quy Nhơn"}</button>
+          <button class="button ${user.disabled ? "button-outline" : "button-danger"}" type="button" data-admin-user="${escapeHtml(user.username)}" data-admin-status="${user.disabled ? "enable" : "disable"}">${user.disabled ? "Kích hoạt lại" : "Xóa tài khoản"}</button>
+        </div>` : ""}
+      </div>`;
+    }).join("") : `<p class="empty-message">Chưa có tài khoản trong database.</p>`;
   } catch (error) {
     list.innerHTML = `<p class="empty-message">${escapeHtml(error.message)}</p>`;
   }
@@ -421,6 +435,8 @@ async function enterAdmin() {
     }
   }
   state.role = data.role;
+  if (data.role === "campus_admin") state.campus = data.campus;
+  $("#campus-select").value = state.campus;
   state.accountType = data.accountType;
   state.username = data.username;
   state.mfaEnabled = Boolean(data.mfaEnabled);
@@ -434,7 +450,7 @@ async function enterAdmin() {
   renderAuth();
   $("#login-screen").hidden = true;
   $(".shell").hidden = false;
-  switchView(state.role === "super" ? "members" : "news");
+  switchView(canManageMembers() ? "members" : "news");
   void loadPublicData();
   notice(`Đã đăng nhập với tài khoản ${data.username}.`);
 }
@@ -453,7 +469,7 @@ $("#campus-select").addEventListener("change", (event) => {
   void loadPublicData();
 });
 $("#add-member").addEventListener("click", () => {
-  if (state.role !== "super") return;
+  if (!canManageMembers()) return;
   state.selectedMemberIndex = -1;
   renderMemberList();
   renderMemberDetail();
@@ -461,9 +477,46 @@ $("#add-member").addEventListener("click", () => {
 });
 $("#logs-refresh").addEventListener("click", loadLogs);
 $("#users-refresh").addEventListener("click", loadUsers);
+$("#users-list").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-admin-user]");
+  if (!button || state.role !== "super" || state.busy) return;
+  const username = button.dataset.adminUser;
+  const path = `users/${encodeURIComponent(username)}`;
+  const desiredRole = button.dataset.adminRole;
+  const desiredStatus = button.dataset.adminStatus;
+  const roleLabel = desiredRole === "campus_admin" ? "Admin cơ sở Quy Nhơn" : "Admin nhỏ";
+  if (desiredRole) {
+    if (!window.confirm(`Đổi quyền của “${username}” thành ${roleLabel}?`)) return;
+  } else if (desiredStatus === "disable" &&
+      !window.confirm(`Vô hiệu hóa tài khoản “${username}”? Tài khoản sẽ không thể đăng nhập và có thể được kích hoạt lại sau.`)) {
+    return;
+  }
+  setBusy(true);
+  try {
+    if (desiredRole) {
+      await adminRequest(path, {
+        method: "PATCH",
+        body: JSON.stringify(desiredRole === "campus_admin" ? { role: desiredRole, campus: "quy-nhon" } : { role: desiredRole }),
+      });
+      notice(`Đã đổi quyền của “${username}” thành ${roleLabel}.`);
+    } else {
+      await adminRequest(path, desiredStatus === "disable"
+        ? { method: "DELETE" }
+        : { method: "PATCH", body: JSON.stringify({ disabled: false }) });
+      notice(desiredStatus === "disable"
+        ? `Đã vô hiệu hóa tài khoản “${username}”.`
+        : `Đã kích hoạt lại tài khoản “${username}”.`);
+    }
+    await loadUsers();
+  } catch (error) {
+    notice(error.message, true);
+  } finally {
+    setBusy(false);
+  }
+});
 $("#create-admin-form").addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (state.role !== "super" || state.busy) return;
+  if (!canManageMembers() || state.busy) return;
   const form = event.target;
   const values = Object.fromEntries(new FormData(form));
   setBusy(true);
@@ -615,7 +668,7 @@ $("#login-form").addEventListener("submit", async (event) => {
 $("#member-detail").addEventListener("submit", async (event) => {
   if (event.target.id !== "member-form") return;
   event.preventDefault();
-  if (state.role !== "super" || state.busy) return;
+  if (!canManageMembers() || state.busy) return;
   const form = event.target;
   const values = Object.fromEntries(new FormData(form));
   const updated = {
@@ -677,7 +730,7 @@ $("#member-detail").addEventListener("click", async (event) => {
   const button = event.target.closest("#delete-member");
   const index = state.selectedMemberIndex;
   const person = index >= 0 ? state.members[index] : null;
-  if (!button || !person || campusOf(person) !== state.campus || state.role !== "super" || state.busy) return;
+  if (!button || !person || campusOf(person) !== state.campus || !canManageMembers() || state.busy) return;
   if (!window.confirm(`Xóa vĩnh viễn hồ sơ “${person.name}” khỏi cơ sở ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}? Không thể hoàn tác.`)) return;
   setBusy(true);
   try {
