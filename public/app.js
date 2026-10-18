@@ -160,12 +160,14 @@ function setBusy(busy) {
   state.busy = busy;
   const loginButton = $("#login-submit");
   const memberButton = $("#member-form button[type=submit]");
+  const memberOrderButton = $("#move-member-first");
   const memberDeleteButton = $("#delete-member");
   const newsButton = $("#news-form button[type=submit]");
   const popupButton = $("#popup-form button[type=submit]");
   loginButton.disabled = busy;
   $("#auth-toggle").disabled = busy;
   if (memberButton) memberButton.disabled = busy || !state.session;
+  if (memberOrderButton) memberOrderButton.disabled = busy || !canManageMembers();
   if (memberDeleteButton) memberDeleteButton.disabled = busy || !canManageMembers();
   const memberImage = $("#member-form input[name=memberImage]");
   if (memberImage) memberImage.disabled = busy || !canManageMembers();
@@ -203,6 +205,7 @@ function renderMemberDetail() {
     detail.innerHTML = `<div class="empty-detail"><span>✦</span><h3>Chọn một thành viên</h3><p>Ảnh và thông tin sẽ hiển thị ở đây.</p></div>`;
     return;
   }
+  const firstMemberIndex = membersHere()[0]?.index;
   detail.innerHTML = `
     <div class="profile-top">${photoMarkup(person.photo, person.name, "profile-photo")}<div><span class="field-label">${state.selectedMemberIndex === -1 ? "THÀNH VIÊN MỚI" : `HỒ SƠ / ${String(state.selectedMemberIndex + 1).padStart(2, "0")}`}</span><h3>${escapeHtml(person.name || "Thêm thành viên")}</h3><p>${escapeHtml(person.title || (state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"))}</p></div></div>
     <form id="member-form" class="profile-form">
@@ -216,7 +219,7 @@ function renderMemberDetail() {
       <label>Giới thiệu<textarea name="introduction" rows="3" maxlength="1200"></textarea></label>
       <label>Quote / thông điệp<textarea name="message" rows="3" maxlength="1200" placeholder="Một câu nói ngắn của thành viên"></textarea></label>
       <label>Chứng nhận · mỗi dòng: Tên | link HTTPS<textarea name="certificates" rows="3" placeholder="Ví dụ: Chứng nhận hoạt động | https://…"></textarea></label>
-      <div class="form-actions"><span>Thay đổi được lưu vào database của ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}.</span><div class="member-form-actions"><button id="delete-member" class="button button-danger" type="button" ${state.selectedMemberIndex < 0 || !canManageMembers() ? "hidden" : ""}>Xóa hồ sơ</button><button class="button button-primary" type="submit" ${!canManageMembers() ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div></div>
+      <div class="form-actions"><span>Thay đổi được lưu vào database của ${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}.</span><div class="member-form-actions"><button id="move-member-first" class="button button-outline" type="button" ${state.selectedMemberIndex < 0 || state.selectedMemberIndex === firstMemberIndex || !canManageMembers() ? "hidden" : ""}>Đưa lên đầu danh sách</button><button id="delete-member" class="button button-danger" type="button" ${state.selectedMemberIndex < 0 || !canManageMembers() ? "hidden" : ""}>Xóa hồ sơ</button><button class="button button-primary" type="submit" ${!canManageMembers() ? "disabled" : ""}>Lưu hồ sơ <span aria-hidden="true">↗</span></button></div></div>
     </form><div class="profile-save-note">Ảnh tải lên được nén và lưu trong database. Ngày sinh và chứng nhận sẽ xuất hiện công khai sau khi lưu.</div>`;
   const form = $("#member-form");
   ["name", "fullName", "title", "group", "cohort", "photo", "facebookUrl", "birthDate", "interests", "introduction", "message"].forEach((field) => {
@@ -727,6 +730,38 @@ $("#member-detail").addEventListener("submit", async (event) => {
   }
 });
 $("#member-detail").addEventListener("click", async (event) => {
+  const moveButton = event.target.closest("#move-member-first");
+  if (moveButton) {
+    const index = state.selectedMemberIndex;
+    const campusIndexes = state.members.flatMap((person, memberIndex) =>
+      campusOf(person) === state.campus ? [memberIndex] : []);
+    if (!canManageMembers() || state.busy || index < 0 || !campusIndexes.includes(index) || campusIndexes[0] === index) return;
+    setBusy(true);
+    try {
+      const campusMembers = campusIndexes.map((memberIndex) => state.members[memberIndex]);
+      const selectedCampusIndex = campusIndexes.indexOf(index);
+      const reorderedCampusMembers = [
+        campusMembers[selectedCampusIndex],
+        ...campusMembers.filter((_, campusIndex) => campusIndex !== selectedCampusIndex),
+      ];
+      const next = [...state.members];
+      campusIndexes.forEach((memberIndex, campusIndex) => {
+        next[memberIndex] = reorderedCampusMembers[campusIndex];
+      });
+      await saveFile("members", next);
+      state.members = next;
+      state.selectedMemberIndex = campusIndexes[0];
+      renderCounts();
+      renderMemberList();
+      renderMemberDetail();
+      notice(`Đã đưa ${state.members[state.selectedMemberIndex].name} lên đầu danh sách.`);
+    } catch (error) {
+      notice(error.message, true);
+    } finally {
+      setBusy(false);
+    }
+    return;
+  }
   const button = event.target.closest("#delete-member");
   const index = state.selectedMemberIndex;
   const person = index >= 0 ? state.members[index] : null;
