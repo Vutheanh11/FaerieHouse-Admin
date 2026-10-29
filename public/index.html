@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="referrer" content="no-referrer" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://faeriehouse.onrender.com https: data:; connect-src https://faerienews-backend.onrender.com; base-uri 'none'; form-action 'self'; object-src 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https://faeriehouse.onrender.com https: data: blob:; connect-src https://faerienews-backend.onrender.com; base-uri 'none'; form-action 'self'; object-src 'none'" />
     <meta name="theme-color" content="#10261d" />
     <meta name="description" content="Quản lý thành viên và bài đăng Faerie News." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -97,7 +97,7 @@
                 <label>Ảnh bài viết · chọn tối đa 4 ảnh<input id="news-image-files" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple /></label>
                 <label>Hoặc link ảnh bìa <input name="image" type="url" placeholder="https://…" /></label>
                 <label>Địa điểm <input name="location" maxlength="100" value="Faerie House" /></label>
-                <div class="form-actions"><span id="news-hint">Chọn Xem trước trước khi xuất bản.</span><button id="news-preview-button" class="button button-outline" type="button">Xem trước</button><button id="news-draft-button" class="button button-outline" type="button">Lưu nháp</button><button id="news-publish-button" class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button><button id="news-cancel-edit" class="button button-outline" type="button" hidden>Hủy sửa</button></div>
+                <div class="form-actions"><span id="news-hint">Bấm Đăng lên News để xem lại bài trước khi xuất bản.</span><button id="news-preview-button" class="button button-outline" type="button">Xem trước</button><button id="news-draft-button" class="button button-outline" type="button">Lưu nháp</button><button id="news-publish-button" class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button><button id="news-cancel-edit" class="button button-outline" type="button" hidden>Hủy sửa</button></div>
               </form>
               <div id="news-preview" class="news-preview" hidden></div>
             </section>
@@ -175,5 +175,13 @@
         </section>
       </main>
     </div>
+    <dialog id="news-review-dialog" class="news-review-dialog" aria-labelledby="news-review-title" aria-describedby="news-review-help">
+      <div class="news-review-top"><span class="field-label">KIỂM TRA TRƯỚC KHI ĐĂNG</span><button id="news-review-close" type="button" class="news-review-close" aria-label="Đóng xem trước">×</button></div>
+      <h2 id="news-review-title">Xem lại bài viết</h2>
+      <p id="news-review-help">Đây là nội dung sẽ xuất hiện trên trang News. Chưa có gì được đăng cho đến khi bạn xác nhận.</p>
+      <div id="news-review-content" class="news-review-content"></div>
+      <p id="news-review-status" class="news-review-status" role="alert" hidden></p>
+      <div class="news-review-actions"><button id="news-review-back" class="button button-outline" type="button">Quay lại chỉnh sửa</button><button id="news-review-confirm" class="button button-primary" type="button">Xác nhận đăng bài ↗</button></div>
+    </dialog>
   </body>
 </html>

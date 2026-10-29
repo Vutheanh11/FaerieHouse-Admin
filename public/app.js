@@ -174,6 +174,9 @@ function setBusy(busy) {
   newsButton.disabled = busy || !state.session;
   $("#news-draft-button").disabled = busy || !state.session;
   $("#news-preview-button").disabled = busy || !state.session;
+  $("#news-review-confirm").disabled = busy || !state.session;
+  $("#news-review-back").disabled = busy;
+  $("#news-review-close").disabled = busy;
   popupButton.disabled = busy || !state.session;
   $("#popup-image-file").disabled = busy || !state.session;
   $("#create-admin-form button[type=submit]").disabled = busy || state.role !== "super";
@@ -848,6 +851,72 @@ function composePost(status) {
   };
 }
 
+const newsReviewDialog = $("#news-review-dialog");
+let pendingNewsReview = null;
+let newsReviewImageUrls = [];
+
+function validatedNewsFiles() {
+  const files = [...($("#news-image-files").files ?? [])];
+  if (files.length > 4 || files.some((file) => !popupMimeType(file) || file.size > 20_000_000)) {
+    throw new Error("Tối đa 4 ảnh JPG, PNG, WebP hoặc HEIC, mỗi ảnh dưới 20 MB.");
+  }
+  return files;
+}
+
+function openNewsReview() {
+  if (!state.session || state.busy || newsReviewDialog.open) return;
+  try {
+    const post = composePost("published");
+    const files = validatedNewsFiles();
+    const images = files.length
+      ? files.map((file) => URL.createObjectURL(file))
+      : (post.images ?? []).map(safeAsset).filter(Boolean);
+    newsReviewImageUrls = files.length ? images : [];
+    pendingNewsReview = { post, files, editingPostId: state.editingPostId };
+    const date = `${post.date.replace(".", "/")}/${post.year}`;
+    const cover = images[0]
+      ? `<figure class="news-review-cover"><img src="${escapeHtml(images[0])}" alt="Ảnh bìa bài viết" /><figcaption>FAERIE HOUSE / ${escapeHtml(post.year)}</figcaption></figure>`
+      : '<div class="news-review-cover news-review-cover-empty">FAERIE NEWS</div>';
+    const gallery = images.length > 1
+      ? `<div class="news-review-gallery">${images.slice(1).map((url, index) => `<figure><img src="${escapeHtml(url)}" alt="Ảnh bài viết ${index + 2}" /><figcaption>${String(index + 2).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</figcaption></figure>`).join("")}</div>`
+      : "";
+    $("#news-review-content").innerHTML = `<article class="news-review-article">
+      <header><span class="field-label">FAERIE STORY / ${escapeHtml(post.tag)}</span><h3>${escapeHtml(post.title)}</h3><div class="news-review-meta"><span>${escapeHtml(date)}</span><span>${escapeHtml(post.location)}</span><span>${images.length} hình ảnh</span><span>${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}</span></div></header>
+      ${cover}<div class="news-review-body">${blocksMarkup(post.bodyBlocks)}</div>${gallery}
+    </article>`;
+    $("#news-review-content").querySelectorAll("img").forEach((image) => image.addEventListener("error", () => {
+      const fallback = document.createElement("div");
+      fallback.className = "news-review-image-error";
+      fallback.textContent = "Không xem trước được ảnh này. Ảnh sẽ được xử lý khi đăng.";
+      image.replaceWith(fallback);
+    }, { once: true }));
+    $("#news-review-status").hidden = true;
+    $("#news-review-status").textContent = "";
+    newsReviewDialog.showModal();
+  } catch (error) {
+    newsReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
+    newsReviewImageUrls = [];
+    pendingNewsReview = null;
+    notice(error.message, true);
+  }
+}
+
+newsReviewDialog.addEventListener("close", () => {
+  newsReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
+  newsReviewImageUrls = [];
+  pendingNewsReview = null;
+  $("#news-review-content").innerHTML = "";
+});
+newsReviewDialog.addEventListener("cancel", (event) => {
+  if (state.busy) event.preventDefault();
+});
+$("#news-review-back").addEventListener("click", () => newsReviewDialog.close());
+$("#news-review-close").addEventListener("click", () => newsReviewDialog.close());
+$("#news-review-confirm").addEventListener("click", async () => {
+  if (!pendingNewsReview || state.busy) return;
+  if (await saveNews("published", pendingNewsReview)) newsReviewDialog.close();
+});
+
 $("#news-preview-button").addEventListener("click", () => {
   try {
     const post = composePost("draft");
@@ -861,12 +930,14 @@ $("#news-preview-button").addEventListener("click", () => {
   } catch (error) { notice(error.message, true); }
 });
 
-async function saveNews(status) {
-  if (!state.session || state.busy) return notice("Hãy đăng nhập trước khi lưu bài.", true);
+async function saveNews(status, prepared = null) {
+  if (!state.session || state.busy) { notice("Hãy đăng nhập trước khi lưu bài.", true); return false; }
   let post;
-  try { post = composePost(status); } catch (error) { return notice(error.message, true); }
-  const files = [...($("#news-image-files").files ?? [])];
-  if (files.length > 4 || files.some((file) => !popupMimeType(file) || file.size > 20_000_000)) return notice("Tối đa 4 ảnh JPG, PNG, WebP hoặc HEIC, mỗi ảnh dưới 20 MB.", true);
+  let files;
+  try {
+    post = prepared?.post ?? composePost(status);
+    files = prepared?.files ?? validatedNewsFiles();
+  } catch (error) { notice(error.message, true); return false; }
   setBusy(true);
   try {
     if (files.length) {
@@ -877,7 +948,7 @@ async function saveNews(status) {
         post.images.push(uploaded.image);
       }
     }
-    const editing = Boolean(state.editingPostId);
+    const editing = Boolean(prepared ? prepared.editingPostId : state.editingPostId);
     const result = await adminRequest(editing ? `posts/${encodeURIComponent(post.id)}` : "posts", { method: editing ? "PATCH" : "POST", body: JSON.stringify({ post }) });
     state.shas.posts = result.sha;
     state.posts = editing ? state.posts.map((item) => item.id === post.id ? result.post : item) : [result.post, ...state.posts];
@@ -886,13 +957,19 @@ async function saveNews(status) {
     renderNews();
     void loadPublicData();
     notice(status === "draft" ? `Đã lưu nháp “${post.title}”.` : `Đã xuất bản “${post.title}”.`);
+    return true;
   } catch (error) {
     notice(error.message, true);
+    if (prepared) {
+      $("#news-review-status").textContent = error.message;
+      $("#news-review-status").hidden = false;
+    }
+    return false;
   } finally {
     setBusy(false);
   }
 }
-$("#news-form").addEventListener("submit", (event) => { event.preventDefault(); void saveNews("published"); });
+$("#news-form").addEventListener("submit", (event) => { event.preventDefault(); openNewsReview(); });
 $("#news-draft-button").addEventListener("click", () => void saveNews("draft"));
 $("#news-cancel-edit").addEventListener("click", resetNewsForm);
 
