@@ -97,9 +97,8 @@
                 <label>Ảnh bài viết · chọn tối đa 4 ảnh<input id="news-image-files" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple /></label>
                 <label>Hoặc link ảnh bìa <input name="image" type="url" placeholder="https://…" /></label>
                 <label>Địa điểm <input name="location" maxlength="100" value="Faerie House" /></label>
-                <div class="form-actions"><span id="news-hint">Bấm Đăng lên News để xem lại bài trước khi xuất bản.</span><button id="news-preview-button" class="button button-outline" type="button">Xem trước</button><button id="news-draft-button" class="button button-outline" type="button">Lưu nháp</button><button id="news-publish-button" class="button button-primary" type="submit">Đăng lên News <span aria-hidden="true">↗</span></button><button id="news-cancel-edit" class="button button-outline" type="button" hidden>Hủy sửa</button></div>
+                <div class="form-actions"><span id="news-hint">Xem thử toàn bộ bài viết trước khi quyết định đăng.</span><button id="news-draft-button" class="button button-outline" type="button">Lưu nháp</button><button id="news-publish-button" class="button button-primary" type="submit">Xem bản preview <span aria-hidden="true">↗</span></button><button id="news-cancel-edit" class="button button-outline" type="button" hidden>Hủy sửa</button></div>
               </form>
-              <div id="news-preview" class="news-preview" hidden></div>
             </section>
             <section class="published panel"><div class="panel-title"><span class="field-label">BÀI TRONG DATABASE</span><strong id="news-count">— bài</strong></div><div id="news-list" class="news-list"><p class="empty-message">Đang tải tin tức…</p></div></section>
           </div>
@@ -176,12 +175,13 @@
       </main>
     </div>
     <dialog id="news-review-dialog" class="news-review-dialog" aria-labelledby="news-review-title" aria-describedby="news-review-help">
-      <div class="news-review-top"><span class="field-label">KIỂM TRA TRƯỚC KHI ĐĂNG</span><button id="news-review-close" type="button" class="news-review-close" aria-label="Đóng xem trước">×</button></div>
-      <h2 id="news-review-title">Xem lại bài viết</h2>
-      <p id="news-review-help">Đây là nội dung sẽ xuất hiện trên trang News. Chưa có gì được đăng cho đến khi bạn xác nhận.</p>
+      <div class="news-review-toolbar">
+        <button id="news-review-back" class="news-review-back" type="button">← Quay lại chỉnh sửa</button>
+        <div class="news-review-toolbar-title"><strong id="news-review-title">BẢN XEM TRƯỚC</strong><span id="news-review-help">Chưa đăng trên website</span></div>
+        <button id="news-review-confirm" class="button button-primary" type="button">Đăng bài ↗</button>
+      </div>
+      <p id="news-review-status" class="news-review-status" role="status" aria-live="polite" hidden></p>
       <div id="news-review-content" class="news-review-content"></div>
-      <p id="news-review-status" class="news-review-status" role="alert" hidden></p>
-      <div class="news-review-actions"><button id="news-review-back" class="button button-outline" type="button">Quay lại chỉnh sửa</button><button id="news-review-confirm" class="button button-primary" type="button">Xác nhận đăng bài ↗</button></div>
     </dialog>
   </body>
 </html>

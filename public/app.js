@@ -173,10 +173,8 @@ function setBusy(busy) {
   if (memberImage) memberImage.disabled = busy || !canManageMembers();
   newsButton.disabled = busy || !state.session;
   $("#news-draft-button").disabled = busy || !state.session;
-  $("#news-preview-button").disabled = busy || !state.session;
   $("#news-review-confirm").disabled = busy || !state.session;
   $("#news-review-back").disabled = busy;
-  $("#news-review-close").disabled = busy;
   popupButton.disabled = busy || !state.session;
   $("#popup-image-file").disabled = busy || !state.session;
   $("#create-admin-form button[type=submit]").disabled = busy || state.role !== "super";
@@ -804,7 +802,6 @@ function resetNewsForm() {
   newsEditor.innerHTML = "";
   savedEditorRange = null;
   state.editingPostId = null;
-  $("#news-preview").hidden = true;
   renderNews();
 }
 
@@ -819,7 +816,6 @@ function loadPostIntoEditor(post) {
   $("#news-image-files").value = "";
   newsEditor.innerHTML = blocksMarkup(post.bodyBlocks);
   savedEditorRange = null;
-  $("#news-preview").hidden = true;
   renderNews();
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -855,6 +851,13 @@ const newsReviewDialog = $("#news-review-dialog");
 let pendingNewsReview = null;
 let newsReviewImageUrls = [];
 
+function setNewsReviewStatus(message, progress = false) {
+  const status = $("#news-review-status");
+  status.textContent = message;
+  status.hidden = !message;
+  status.classList.toggle("is-progress", progress);
+}
+
 function validatedNewsFiles() {
   const files = [...($("#news-image-files").files ?? [])];
   if (files.length > 4 || files.some((file) => !popupMimeType(file) || file.size > 20_000_000)) {
@@ -878,20 +881,20 @@ function openNewsReview() {
       ? `<figure class="news-review-cover"><img src="${escapeHtml(images[0])}" alt="Ảnh bìa bài viết" /><figcaption>FAERIE HOUSE / ${escapeHtml(post.year)}</figcaption></figure>`
       : '<div class="news-review-cover news-review-cover-empty">FAERIE NEWS</div>';
     const gallery = images.length > 1
-      ? `<div class="news-review-gallery">${images.slice(1).map((url, index) => `<figure><img src="${escapeHtml(url)}" alt="Ảnh bài viết ${index + 2}" /><figcaption>${String(index + 2).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</figcaption></figure>`).join("")}</div>`
+      ? `<section class="news-review-gallery-section" aria-label="Hình ảnh bài viết"><div class="news-review-gallery-heading"><span>02 / HÌNH ẢNH</span><h2>NHỮNG KHOẢNH KHẮC<br /><em>ĐÁNG NHỚ.</em></h2></div><div class="news-review-gallery">${images.slice(1).map((url, index) => `<figure><img src="${escapeHtml(url)}" alt="Ảnh bài viết ${index + 2}" /><figcaption>${String(index + 2).padStart(2, "0")} / ${String(images.length).padStart(2, "0")}</figcaption></figure>`).join("")}</div></section>`
       : "";
     $("#news-review-content").innerHTML = `<article class="news-review-article">
-      <header><span class="field-label">FAERIE STORY / ${escapeHtml(post.tag)}</span><h3>${escapeHtml(post.title)}</h3><div class="news-review-meta"><span>${escapeHtml(date)}</span><span>${escapeHtml(post.location)}</span><span>${images.length} hình ảnh</span><span>${state.campus === "hcm" ? "TP.HCM" : "Quy Nhơn"}</span></div></header>
-      ${cover}<div class="news-review-body">${blocksMarkup(post.bodyBlocks)}</div>${gallery}
+      <header class="news-review-hero"><div class="news-review-container"><span class="news-review-kicker">FAERIE STORY / ${escapeHtml(post.tag)}</span><h1>${escapeHtml(post.title)}</h1><div class="news-review-meta"><span>${escapeHtml(date)}</span><span>${escapeHtml(post.location)}</span><span>${String(images.length).padStart(2, "0")} hình ảnh</span></div></div></header>
+      ${cover}<section class="news-review-story news-review-container"><aside class="news-review-aside"><span>01 / CÂU CHUYỆN</span><strong>${escapeHtml(date)}</strong><small>${escapeHtml(post.location)}</small></aside><div class="news-review-body">${blocksMarkup(post.bodyBlocks)}</div></section>${gallery}
     </article>`;
+    $("#news-review-content").scrollTop = 0;
     $("#news-review-content").querySelectorAll("img").forEach((image) => image.addEventListener("error", () => {
       const fallback = document.createElement("div");
       fallback.className = "news-review-image-error";
       fallback.textContent = "Không xem trước được ảnh này. Ảnh sẽ được xử lý khi đăng.";
       image.replaceWith(fallback);
     }, { once: true }));
-    $("#news-review-status").hidden = true;
-    $("#news-review-status").textContent = "";
+    setNewsReviewStatus("");
     newsReviewDialog.showModal();
   } catch (error) {
     newsReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
@@ -906,28 +909,15 @@ newsReviewDialog.addEventListener("close", () => {
   newsReviewImageUrls = [];
   pendingNewsReview = null;
   $("#news-review-content").innerHTML = "";
+  setNewsReviewStatus("");
 });
 newsReviewDialog.addEventListener("cancel", (event) => {
   if (state.busy) event.preventDefault();
 });
 $("#news-review-back").addEventListener("click", () => newsReviewDialog.close());
-$("#news-review-close").addEventListener("click", () => newsReviewDialog.close());
 $("#news-review-confirm").addEventListener("click", async () => {
   if (!pendingNewsReview || state.busy) return;
   if (await saveNews("published", pendingNewsReview)) newsReviewDialog.close();
-});
-
-$("#news-preview-button").addEventListener("click", () => {
-  try {
-    const post = composePost("draft");
-    const file = $("#news-image-files").files?.[0];
-    const preview = $("#news-preview");
-    const photo = file ? URL.createObjectURL(file) : safeAsset(post.images[0]);
-    preview.innerHTML = `<span class="field-label">XEM TRƯỚC · ${state.campus === "hcm" ? "TP.HCM" : "QUY NHƠN"}</span><h2>${escapeHtml(post.title)}</h2><small>${escapeHtml(post.date)}.${escapeHtml(post.year)} · ${escapeHtml(post.tag)}</small>${photo ? `<img src="${escapeHtml(photo)}" alt="Ảnh bìa xem trước" />` : ""}<div class="preview-body">${blocksMarkup(post.bodyBlocks)}</div>`;
-    preview.hidden = false;
-    preview.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    if (file) preview.querySelector("img").addEventListener("load", () => URL.revokeObjectURL(photo), { once: true });
-  } catch (error) { notice(error.message, true); }
 });
 
 async function saveNews(status, prepared = null) {
@@ -939,15 +929,18 @@ async function saveNews(status, prepared = null) {
     files = prepared?.files ?? validatedNewsFiles();
   } catch (error) { notice(error.message, true); return false; }
   setBusy(true);
+  if (prepared) setNewsReviewStatus(files.length ? "Đang xử lý ảnh trước khi đăng…" : "Đang đăng bài…", true);
   try {
     if (files.length) {
       post.images = [];
       for (const file of files) {
         notice(`Đang xử lý ảnh ${post.images.length + 1}/${files.length}…`);
+        if (prepared) setNewsReviewStatus(`Đang xử lý ảnh ${post.images.length + 1}/${files.length}…`, true);
         const uploaded = await adminRequest("news-image", { method: "POST", body: JSON.stringify({ mimeType: popupMimeType(file), imageBase64: await imageBase64(file) }) });
         post.images.push(uploaded.image);
       }
     }
+    if (prepared) setNewsReviewStatus("Đang đăng bài…", true);
     const editing = Boolean(prepared ? prepared.editingPostId : state.editingPostId);
     const result = await adminRequest(editing ? `posts/${encodeURIComponent(post.id)}` : "posts", { method: editing ? "PATCH" : "POST", body: JSON.stringify({ post }) });
     state.shas.posts = result.sha;
@@ -960,10 +953,7 @@ async function saveNews(status, prepared = null) {
     return true;
   } catch (error) {
     notice(error.message, true);
-    if (prepared) {
-      $("#news-review-status").textContent = error.message;
-      $("#news-review-status").hidden = false;
-    }
+    if (prepared) setNewsReviewStatus(error.message);
     return false;
   } finally {
     setBusy(false);
