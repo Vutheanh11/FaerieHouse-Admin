@@ -15,6 +15,24 @@
 .news-editor font[size="4"] { font-size: 22px; }
 .news-editor font[size="5"] { font-size: 28px; }
 .editor-help { color: #708775; font-size: 12px; line-height: 1.5; }
+.news-image-picker { display: grid; justify-items: start; gap: 9px; }
+.news-image-picker .button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 145px; }
+.news-image-preview { display: grid; gap: 10px; }
+.news-image-preview-status { margin: 0; color: #568969; font-size: 12px; font-weight: 800; }
+.news-image-preview-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.news-image-preview-card { position: relative; min-width: 0; margin: 0; border: 1px solid #c6d7c6; background: #f0f6ec; }
+.news-image-preview-card:only-child { grid-column: 1 / -1; }
+.news-image-preview-media { display: grid; place-items: center; height: 170px; padding: 8px; background: #e5eedf; }
+.news-image-preview-card:only-child .news-image-preview-media { height: 240px; }
+.news-image-preview-media img { display: block; width: 100%; height: 100%; min-height: 0; object-fit: contain; }
+.news-image-preview-error { margin: 0; color: #60826b; font-size: 12px; line-height: 1.6; text-align: center; }
+.news-image-preview-card figcaption { display: grid; gap: 5px; padding: 10px 12px; color: #31513b; font-size: 12px; }
+.news-image-preview-card strong { font-size: 11px; }
+.news-image-preview-name { overflow: hidden; color: #708775; text-overflow: ellipsis; white-space: nowrap; }
+.news-image-remove { position: absolute; top: 7px; right: 7px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 1px solid #c6d7c6; border-radius: 50%; background: #fbfdf9; color: #173223; font-size: 24px; line-height: 1; box-shadow: 0 2px 8px #10261d20; }
+.news-image-remove:hover { border-color: #a24938; background: #fae7e2; color: #8d3023; }
+.news-image-remove:focus-visible { outline: 3px solid #90bd55; outline-offset: 3px; }
+.news-image-remove:disabled { opacity: .5; cursor: not-allowed; }
 @media (max-width: 430px) { .editor-size-label { margin-left: 2px; } .news-editor { min-height: 180px; } }
 
 .news-review-dialog { position: fixed; inset: 0; width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0; border: 0; background: #f5f3eb; color: #172c20; }

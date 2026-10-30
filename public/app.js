@@ -1,3 +1,5 @@
+import { imageMimeType, validateImageFiles } from "./image-upload.mjs";
+
 const API = "https://faerienews-backend.onrender.com";
 const FRONTEND = "https://faeriehouse.onrender.com/";
 const SESSION_KEY = "faerie-admin-session-v1";
@@ -49,17 +51,11 @@ const postsHere = () => state.posts.filter((post) => campusOf(post) === state.ca
 const canManageMembers = () => state.role === "super" || (state.role === "campus_admin" && state.campus === "quy-nhon");
 const popupDocument = (value) => value?.hcm ? value : { hcm: value ?? { enabled: false, title: "", description: "", image: "", facebookUrl: "" }, "quy-nhon": { enabled: false, title: "", description: "", image: "", facebookUrl: "" } };
 let popupPreviewUrl = "";
+let newsImages = [];
 function clearPopupPreview() {
   if (popupPreviewUrl) URL.revokeObjectURL(popupPreviewUrl);
   popupPreviewUrl = "";
 }
-function popupMimeType(file) {
-  if (["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"].includes(file.type)) return file.type;
-  if (/\.heic$/i.test(file.name)) return "image/heic";
-  if (/\.heif$/i.test(file.name)) return "image/heif";
-  return "";
-}
-
 function imageBase64(blob) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -173,6 +169,8 @@ function setBusy(busy) {
   if (memberImage) memberImage.disabled = busy || !canManageMembers();
   newsButton.disabled = busy || !state.session;
   $("#news-draft-button").disabled = busy || !state.session;
+  syncNewsImagePicker();
+  document.querySelectorAll("[data-remove-news-image]").forEach((button) => { button.disabled = busy || !state.session; });
   $("#news-review-confirm").disabled = busy || !state.session;
   $("#news-review-back").disabled = busy;
   popupButton.disabled = busy || !state.session;
@@ -214,7 +212,7 @@ function renderMemberDetail() {
       <div class="form-row"><label>Chức vụ<input name="title" maxlength="100" required /></label><label>Nhóm<select name="group"><option value="Mentor">Mentor</option><option value="Supporter">Supporter</option><option value="Leadership">Ban điều hành</option><option value="Member">Member</option></select></label></div>
       <label>Thế hệ Faerie / Cohort<input name="cohort" maxlength="30" placeholder="2026" /></label>
       <label>Ảnh thành viên · URL hoặc đường dẫn ảnh Faerie<input name="photo" maxlength="600" /></label>
-      <label>Hoặc tải ảnh mới từ thiết bị<input name="memberImage" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
+      <label>Hoặc tải ảnh mới từ thiết bị<input name="memberImage" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.heic,.heif" /></label>
       <label>Facebook · URL<input name="facebookUrl" type="url" maxlength="600" /></label>
       <div class="form-row"><label>Ngày sinh · chỉ điền khi thành viên đồng ý công khai<input name="birthDate" type="date" /></label><label>Sở thích<input name="interests" maxlength="300" /></label></div>
       <label>Giới thiệu<textarea name="introduction" rows="3" maxlength="1200"></textarea></label>
@@ -418,6 +416,8 @@ function logout(message = "") {
   state.popup = null;
   state.editingPostId = null;
   state.selectedMemberIndex = null;
+  $("#news-form").reset();
+  clearNewsImages();
   $(".shell").hidden = true;
   $("#login-screen").hidden = false;
   $("#login-form").reset();
@@ -611,9 +611,11 @@ $("#popup-image-file").addEventListener("change", (event) => {
   clearPopupPreview();
   const file = event.target.files?.[0];
   if (file) {
-    if (!popupMimeType(file) || file.size > 20_000_000) {
+    try { validateImageFiles([file]); }
+    catch (error) {
       event.target.value = "";
-      return notice("Chọn ảnh JPG, PNG, WebP hoặc HEIC dưới 20 MB.", true);
+      updatePopupPreview();
+      return notice(error.message, true);
     }
     popupPreviewUrl = URL.createObjectURL(file);
     notice("Đã chọn ảnh. Bấm Lưu popup để tải lên và xử lý.");
@@ -709,10 +711,11 @@ $("#member-detail").addEventListener("submit", async (event) => {
   try {
     const file = form.elements.memberImage.files?.[0];
     if (file) {
+      validateImageFiles([file]);
       notice("Đang nén và tải ảnh thành viên lên…");
       const uploaded = await adminRequest("member-image", {
         method: "POST",
-        body: JSON.stringify({ mimeType: popupMimeType(file), imageBase64: await imageBase64(file) }),
+        body: JSON.stringify({ mimeType: imageMimeType(file), imageBase64: await imageBase64(file) }),
       });
       updated.photo = uploaded.image;
     }
@@ -802,10 +805,12 @@ function resetNewsForm() {
   newsEditor.innerHTML = "";
   savedEditorRange = null;
   state.editingPostId = null;
+  clearNewsImages();
   renderNews();
 }
 
 function loadPostIntoEditor(post) {
+  clearNewsImages();
   state.editingPostId = post.id;
   const form = $("#news-form");
   form.elements.title.value = post.title;
@@ -814,8 +819,10 @@ function loadPostIntoEditor(post) {
   form.elements.location.value = post.location;
   form.elements.image.value = post.images?.[0] ?? "";
   $("#news-image-files").value = "";
+  newsImages = (post.images ?? []).map((url) => ({ url }));
   newsEditor.innerHTML = blocksMarkup(post.bodyBlocks);
   savedEditorRange = null;
+  renderNewsImagePreviews();
   renderNews();
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -843,13 +850,12 @@ function composePost(status) {
     tag: values.tag.trim() || "NEWS",
     location: values.location.trim() || "Faerie House",
     tone: "mint",
-    images: values.image ? [values.image.trim(), ...(previous?.images ?? []).slice(1)] : previous?.images ?? [],
+    images: newsImages.filter((image) => !image.file).map((image) => safeAsset(image.url)),
   };
 }
 
 const newsReviewDialog = $("#news-review-dialog");
 let pendingNewsReview = null;
-let newsReviewImageUrls = [];
 
 function setNewsReviewStatus(message, progress = false) {
   const status = $("#news-review-status");
@@ -858,24 +864,106 @@ function setNewsReviewStatus(message, progress = false) {
   status.classList.toggle("is-progress", progress);
 }
 
-function validatedNewsFiles() {
-  const files = [...($("#news-image-files").files ?? [])];
-  if (files.length > 4 || files.some((file) => !popupMimeType(file) || file.size > 20_000_000)) {
-    throw new Error("Tối đa 4 ảnh JPG, PNG, WebP hoặc HEIC, mỗi ảnh dưới 20 MB.");
-  }
-  return files;
+function validatedNewsImages() {
+  if (newsImages.length > 4) throw new Error("Mỗi bài chỉ được tối đa 4 ảnh. Hãy xóa bớt ảnh bằng nút ×.");
+  validateImageFiles(newsImages.filter((image) => image.file).map((image) => image.file), 4);
+  if (newsImages.some((image) => !image.file && !safeAsset(image.url))) throw new Error("Ảnh bài đăng phải là URL HTTPS.");
+  return newsImages.map((image) => ({ ...image }));
 }
+
+function clearNewsImages() {
+  newsImages.forEach((image) => { if (image.file) URL.revokeObjectURL(image.url); });
+  newsImages = [];
+  $("#news-image-files").value = "";
+  const preview = $("#news-image-preview");
+  preview.replaceChildren();
+  preview.hidden = true;
+  syncNewsImagePicker();
+}
+
+function syncNewsImagePicker() {
+  const disabled = state.busy || !state.session || newsImages.length >= 4;
+  $("#news-image-files").disabled = disabled;
+  $("#news-add-image").disabled = disabled;
+}
+
+function syncNewsCoverInput() {
+  $("#news-form").elements.image.value = newsImages[0] && !newsImages[0].file ? newsImages[0].url : "";
+}
+
+function renderNewsImagePreviews() {
+  syncNewsImagePicker();
+  const preview = $("#news-image-preview");
+  preview.hidden = !newsImages.length;
+  if (!newsImages.length) { preview.replaceChildren(); return; }
+  preview.innerHTML = `<p class="news-image-preview-status" role="status">${newsImages.length}/4 ảnh · Ảnh đầu tiên là ảnh bìa</p>
+    <div class="news-image-preview-grid">${newsImages.map((image, index) => `<figure class="news-image-preview-card">
+      <div class="news-image-preview-media"><img src="${escapeHtml(image.file ? image.url : safeAsset(image.url))}" alt="Xem trước ${index === 0 ? "ảnh bìa" : `ảnh ${index + 1}`}" /></div>
+      <button class="news-image-remove" type="button" data-remove-news-image="${index}" aria-label="Xóa ảnh ${index + 1}${image.file ? `: ${escapeHtml(image.file.name)}` : ""}" title="Xóa ảnh này"${state.busy || !state.session ? " disabled" : ""}>×</button>
+      <figcaption><strong>${index === 0 ? "01 · ẢNH BÌA" : `${String(index + 1).padStart(2, "0")} · ẢNH BÀI VIẾT`}</strong>${image.file ? `<span class="news-image-preview-name" title="${escapeHtml(image.file.name)}">${escapeHtml(image.file.name)}</span>` : ""}</figcaption>
+    </figure>`).join("")}</div>`;
+  preview.querySelectorAll("img").forEach((image) => image.addEventListener("error", () => {
+    const fallback = document.createElement("p");
+    fallback.className = "news-image-preview-error";
+    fallback.textContent = "Trình duyệt không xem trước được ảnh này. Ảnh sẽ được xử lý khi lưu bài.";
+    image.replaceWith(fallback);
+  }, { once: true }));
+}
+
+$("#news-add-image").addEventListener("click", () => $("#news-image-files").click());
+$("#news-image-files").addEventListener("change", (event) => {
+  const files = Array.from(event.target.files ?? []);
+  event.target.value = "";
+  if (state.busy || !state.session || !files.length) return;
+  try {
+    if (newsImages.length + files.length > 4) {
+      throw new Error(newsImages.length === 4
+        ? "Đã đủ 4 ảnh. Bấm × để xóa một ảnh trước khi chọn ảnh khác."
+        : `Đang có ${newsImages.length} ảnh, chỉ có thể thêm ${4 - newsImages.length} ảnh. Mỗi bài tối đa 4 ảnh; bấm × để xóa ảnh trước khi chọn ảnh khác.`);
+    }
+    validateImageFiles(files);
+    const file = files[0];
+    newsImages.push({ file, url: URL.createObjectURL(file) });
+    renderNewsImagePreviews();
+    notice(`Đã thêm ${files.length} ảnh. Bài viết hiện có ${newsImages.length}/4 ảnh.`);
+  } catch (error) { notice(error.message, true); }
+});
+$("#news-image-preview").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-news-image]");
+  if (!button || state.busy || !state.session) return;
+  const index = Number(button.dataset.removeNewsImage);
+  const [removed] = newsImages.splice(index, 1);
+  if (removed.file) URL.revokeObjectURL(removed.url);
+  syncNewsCoverInput();
+  renderNewsImagePreviews();
+  notice(`Đã bỏ ảnh ${index + 1} khỏi danh sách. Còn ${newsImages.length}/4 ảnh.`);
+  const nextButton = document.querySelector(`[data-remove-news-image="${Math.min(index, newsImages.length - 1)}"]`);
+  (nextButton ?? $("#news-add-image")).focus();
+});
+$("#news-form [name=image]").addEventListener("input", (event) => {
+  const value = event.target.value.trim();
+  const cover = newsImages[0];
+  if (cover && !cover.file) {
+    if (value) cover.url = value;
+    else { newsImages.shift(); syncNewsCoverInput(); }
+  } else if (value) {
+    if (newsImages.length === 4) {
+      event.target.value = "";
+      notice("Đã có 4 ảnh. Bấm × để xóa một ảnh trước khi thêm link ảnh bìa.", true);
+      return;
+    }
+    newsImages.unshift({ url: value });
+  }
+  renderNewsImagePreviews();
+});
 
 function openNewsReview() {
   if (!state.session || state.busy || newsReviewDialog.open) return;
   try {
     const post = composePost("published");
-    const files = validatedNewsFiles();
-    const images = files.length
-      ? files.map((file) => URL.createObjectURL(file))
-      : (post.images ?? []).map(safeAsset).filter(Boolean);
-    newsReviewImageUrls = files.length ? images : [];
-    pendingNewsReview = { post, files, editingPostId: state.editingPostId };
+    const selectedImages = validatedNewsImages();
+    const images = selectedImages.map((image) => image.file ? image.url : safeAsset(image.url));
+    pendingNewsReview = { post, images: selectedImages, editingPostId: state.editingPostId };
     const date = `${post.date.replace(".", "/")}/${post.year}`;
     const cover = images[0]
       ? `<figure class="news-review-cover"><img src="${escapeHtml(images[0])}" alt="Ảnh bìa bài viết" /><figcaption>FAERIE HOUSE / ${escapeHtml(post.year)}</figcaption></figure>`
@@ -897,16 +985,12 @@ function openNewsReview() {
     setNewsReviewStatus("");
     newsReviewDialog.showModal();
   } catch (error) {
-    newsReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
-    newsReviewImageUrls = [];
     pendingNewsReview = null;
     notice(error.message, true);
   }
 }
 
 newsReviewDialog.addEventListener("close", () => {
-  newsReviewImageUrls.forEach((url) => URL.revokeObjectURL(url));
-  newsReviewImageUrls = [];
   pendingNewsReview = null;
   $("#news-review-content").innerHTML = "";
   setNewsReviewStatus("");
@@ -923,21 +1007,26 @@ $("#news-review-confirm").addEventListener("click", async () => {
 async function saveNews(status, prepared = null) {
   if (!state.session || state.busy) { notice("Hãy đăng nhập trước khi lưu bài.", true); return false; }
   let post;
-  let files;
+  let images;
   try {
     post = prepared?.post ?? composePost(status);
-    files = prepared?.files ?? validatedNewsFiles();
+    images = prepared?.images ?? validatedNewsImages();
   } catch (error) { notice(error.message, true); return false; }
+  const uploadCount = images.filter((image) => image.file).length;
   setBusy(true);
-  if (prepared) setNewsReviewStatus(files.length ? "Đang xử lý ảnh trước khi đăng…" : "Đang đăng bài…", true);
+  if (prepared) setNewsReviewStatus(uploadCount ? "Đang xử lý ảnh trước khi đăng…" : "Đang đăng bài…", true);
   try {
-    if (files.length) {
-      post.images = [];
-      for (const file of files) {
-        notice(`Đang xử lý ảnh ${post.images.length + 1}/${files.length}…`);
-        if (prepared) setNewsReviewStatus(`Đang xử lý ảnh ${post.images.length + 1}/${files.length}…`, true);
-        const uploaded = await adminRequest("news-image", { method: "POST", body: JSON.stringify({ mimeType: popupMimeType(file), imageBase64: await imageBase64(file) }) });
+    post.images = [];
+    let uploadIndex = 0;
+    for (const image of images) {
+      if (image.file) {
+        uploadIndex++;
+        notice(`Đang xử lý ảnh ${uploadIndex}/${uploadCount}…`);
+        if (prepared) setNewsReviewStatus(`Đang xử lý ảnh ${uploadIndex}/${uploadCount}…`, true);
+        const uploaded = await adminRequest("news-image", { method: "POST", body: JSON.stringify({ mimeType: imageMimeType(image.file), imageBase64: await imageBase64(image.file) }) });
         post.images.push(uploaded.image);
+      } else {
+        post.images.push(safeAsset(image.url));
       }
     }
     if (prepared) setNewsReviewStatus("Đang đăng bài…", true);
@@ -1022,10 +1111,11 @@ $("#popup-form").addEventListener("submit", async (event) => {
   try {
     const file = $("#popup-image-file").files?.[0];
     if (file) {
+      validateImageFiles([file]);
       notice("Đang tải ảnh lên để xử lý…");
       const uploaded = await adminRequest("popup-image", {
         method: "POST",
-        body: JSON.stringify({ mimeType: popupMimeType(file), imageBase64: await imageBase64(file) }),
+        body: JSON.stringify({ mimeType: imageMimeType(file), imageBase64: await imageBase64(file) }),
       });
       popup.image = uploaded.image;
       form.elements.image.value = popup.image;

@@ -9,11 +9,11 @@
     <meta name="description" content="Quản lý thành viên và bài đăng Faerie News." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="/styles.css" />
-    <link rel="stylesheet" href="/editor.css" />
+    <link rel="stylesheet" href="/editor.css?v=20261031-images" />
     <link rel="stylesheet" href="/login.css" />
     <link rel="stylesheet" href="/popup.css" />
     <title>Faerie House · Admin</title>
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/app.js?v=20261031-images"></script>
   </head>
   <body>
     <section id="login-screen" class="login-screen" aria-labelledby="login-title">
@@ -94,7 +94,13 @@
                   <div id="news-editor" class="news-editor" contenteditable="true" role="textbox" aria-labelledby="news-editor-label" aria-multiline="true" data-placeholder="Viết câu chuyện của nhà Faerie…"></div>
                   <small class="editor-help">Chọn đoạn chữ rồi nhấn nút định dạng. Phần mô tả ngắn trên thẻ News sẽ tự lấy từ bài viết.</small>
                 </div>
-                <label>Ảnh bài viết · chọn tối đa 4 ảnh<input id="news-image-files" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" multiple /></label>
+                <div class="news-image-picker">
+                  <span class="editor-label" id="news-image-label">Ảnh bài viết · tối đa 4 ảnh</span>
+                  <input id="news-image-files" type="file" aria-labelledby="news-image-label" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.heic,.heif" hidden />
+                  <button id="news-add-image" class="button button-outline" type="button">+ Thêm 1 ảnh</button>
+                </div>
+                <p class="popup-upload-note">Bấm “Thêm 1 ảnh” mỗi lần để chọn thêm. Ảnh được nối theo thứ tự, tối đa 4 ảnh và 20 MB mỗi ảnh. Bấm × để xóa riêng ảnh đó.</p>
+                <div id="news-image-preview" class="news-image-preview" aria-label="Xem trước ảnh bài viết" hidden></div>
                 <label>Hoặc link ảnh bìa <input name="image" type="url" placeholder="https://…" /></label>
                 <label>Địa điểm <input name="location" maxlength="100" value="Faerie House" /></label>
                 <div class="form-actions"><span id="news-hint">Xem thử toàn bộ bài viết trước khi quyết định đăng.</span><button id="news-draft-button" class="button button-outline" type="button">Lưu nháp</button><button id="news-publish-button" class="button button-primary" type="submit">Xem bản preview <span aria-hidden="true">↗</span></button><button id="news-cancel-edit" class="button button-outline" type="button" hidden>Hủy sửa</button></div>
@@ -111,7 +117,7 @@
                 <label class="popup-toggle"><input name="enabled" type="checkbox" /><span>Hiển thị popup trên website</span></label>
                 <label>Tiêu đề sự kiện<input name="title" maxlength="120" placeholder="Tên sự kiện Faerie" /></label>
                 <label>Giới thiệu sự kiện<textarea name="description" rows="5" maxlength="1200" placeholder="Viết vài câu giới thiệu sự kiện…"></textarea></label>
-                <label>Chọn ảnh từ thiết bị<input id="popup-image-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
+                <label>Chọn ảnh từ thiết bị<input id="popup-image-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.jpe,.jfif,.png,.webp,.heic,.heif" /></label>
                 <p class="popup-upload-note">Chọn JPG, PNG, WebP hoặc HEIC dưới 20 MB. Backend sẽ xử lý và thu nhỏ ảnh khi bạn bấm Lưu popup.</p>
                 <label>Hoặc nhập link ảnh có sẵn<input name="image" maxlength="600" placeholder="https://… hoặc images/events/…" /></label>
                 <label>Link sự kiện Facebook · không bắt buộc<input name="facebookUrl" type="url" maxlength="600" placeholder="https://www.facebook.com/events/…" /></label>
